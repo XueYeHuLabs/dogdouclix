@@ -1,6 +1,4 @@
 #include "dogdouclix/cred_manager.hpp"
-#include "dogdouclix/config_parser.hpp"
-#include <sstream>
 
 namespace dogdouclix {
 
@@ -8,86 +6,6 @@ namespace {
 
 constexpr const wchar_t* ProfilePrefix = L"dogdouclix:profile:";
 constexpr size_t ProfilePrefixLen = 19; // wcslen(L"dogdouclix:profile:")
-
-static std::string EscapeJsonString(std::string_view Str) {
-  std::string result;
-  for (char ch : Str) {
-    if (ch == '\\') {
-      result.append("\\\\");
-    } else if (ch == '"') {
-      result.append("\\\"");
-    } else if (ch == '\n') {
-      result.append("\\n");
-    } else if (ch == '\r') {
-      result.append("\\r");
-    } else if (ch == '\t') {
-      result.append("\\t");
-    } else {
-      result.push_back(ch);
-    }
-  }
-  return result;
-}
-
-static std::string SerializeProfilePayload(const CRED_PROFILE& Profile) {
-  std::ostringstream ss;
-  ss << "{\n";
-  if (Profile.WorkingDirectory.has_value()) {
-    ss << "  \"cwd\": \"" << EscapeJsonString(WideToUtf8(*Profile.WorkingDirectory)) << "\",\n";
-  }
-  if (Profile.DesktopStation.has_value()) {
-    ss << "  \"desktop\": \"" << EscapeJsonString(WideToUtf8(*Profile.DesktopStation)) << "\",\n";
-  }
-
-  if (Profile.Username.has_value() || Profile.Domain.has_value() || Profile.Password.has_value() || Profile.LoadUserProfile) {
-    ss << "  \"user\": {\n";
-    bool firstuser = true;
-    if (Profile.Username.has_value()) {
-      ss << "    \"username\": \"" << EscapeJsonString(WideToUtf8(*Profile.Username)) << "\"";
-      firstuser = false;
-    }
-    if (Profile.Domain.has_value()) {
-      if (!firstuser) ss << ",\n";
-      ss << "    \"domain\": \"" << EscapeJsonString(WideToUtf8(*Profile.Domain)) << "\"";
-      firstuser = false;
-    }
-    if (Profile.Password.has_value()) {
-      if (!firstuser) ss << ",\n";
-      ss << "    \"password\": \"" << EscapeJsonString(WideToUtf8(*Profile.Password)) << "\"";
-      firstuser = false;
-    }
-    if (Profile.LoadUserProfile) {
-      if (!firstuser) ss << ",\n";
-      ss << "    \"load_profile\": true";
-      firstuser = false;
-    }
-    ss << "\n  },\n";
-  }
-
-  ss << "  \"env_set\": {\n";
-  bool firstset = true;
-  for (const auto& mut : Profile.EnvMutations) {
-    if (mut.Type == EnvMutationSet) {
-      if (!firstset) ss << ",\n";
-      ss << "    \"" << EscapeJsonString(WideToUtf8(mut.Key)) << "\": \"" << EscapeJsonString(WideToUtf8(mut.Value)) << "\"";
-      firstset = false;
-    }
-  }
-  ss << "\n  },\n";
-
-  ss << "  \"env_remove\": [\n";
-  bool firstrem = true;
-  for (const auto& mut : Profile.EnvMutations) {
-    if (mut.Type == EnvMutationRemove) {
-      if (!firstrem) ss << ",\n";
-      ss << "    \"" << EscapeJsonString(WideToUtf8(mut.Key)) << "\"";
-      firstrem = false;
-    }
-  }
-  ss << "\n  ]\n";
-  ss << "}\n";
-  return ss.str();
-}
 
 } // namespace
 
@@ -107,7 +25,10 @@ bool CredManager::SaveProfile(
   }
 
   std::wstring targetname = FormatTargetName(Profile.Name);
-  std::string payload = SerializeProfilePayload(Profile);
+  std::string passwordutf8;
+  if (Profile.Password.has_value()) {
+    passwordutf8 = WideToUtf8(*Profile.Password);
+  }
 
   std::wstring usernamefull;
   if (Profile.Username.has_value()) {
@@ -121,8 +42,8 @@ bool CredManager::SaveProfile(
   CREDENTIALW cred{};
   cred.Type = CRED_TYPE_GENERIC;
   cred.TargetName = const_cast<LPWSTR>(targetname.c_str());
-  cred.CredentialBlobSize = static_cast<DWORD>(payload.size());
-  cred.CredentialBlob = reinterpret_cast<LPBYTE>(const_cast<char*>(payload.data()));
+  cred.CredentialBlobSize = static_cast<DWORD>(passwordutf8.size());
+  cred.CredentialBlob = passwordutf8.empty() ? nullptr : reinterpret_cast<LPBYTE>(const_cast<char*>(passwordutf8.data()));
   cred.Persist = CRED_PERSIST_LOCAL_MACHINE;
   cred.UserName = usernamefull.empty() ? nullptr : const_cast<LPWSTR>(usernamefull.c_str());
 
@@ -159,27 +80,23 @@ std::optional<CRED_PROFILE> CredManager::GetProfile(
     return std::nullopt;
   }
 
-  std::string payload;
-  if (cred->CredentialBlob != nullptr && cred->CredentialBlobSize > 0) {
-    payload.assign(reinterpret_cast<const char*>(cred->CredentialBlob), cred->CredentialBlobSize);
-  }
-
   CRED_PROFILE profile;
   profile.Name = ProfileName;
 
-  if (!payload.empty()) {
-    auto parsed = ConfigParser::ParseJson(payload);
-    if (parsed.has_value()) {
-      profile.EnvMutations = parsed->EnvMutations;
-      profile.WorkingDirectory = parsed->WorkingDirectory;
-      profile.DesktopStation = parsed->DesktopStation;
-      if (parsed->UserContext.has_value()) {
-        profile.Username = parsed->UserContext->Username;
-        profile.Domain = parsed->UserContext->Domain;
-        profile.Password = parsed->UserContext->Password;
-        profile.LoadUserProfile = parsed->UserContext->LoadUserProfile;
-      }
+  if (cred->UserName != nullptr && wcslen(cred->UserName) > 0) {
+    std::wstring userstr(cred->UserName);
+    size_t slashpos = userstr.find(L'\\');
+    if (slashpos != std::wstring::npos) {
+      profile.Domain = userstr.substr(0, slashpos);
+      profile.Username = userstr.substr(slashpos + 1);
+    } else {
+      profile.Username = userstr;
     }
+  }
+
+  if (cred->CredentialBlob != nullptr && cred->CredentialBlobSize > 0) {
+    std::string passraw(reinterpret_cast<const char*>(cred->CredentialBlob), cred->CredentialBlobSize);
+    profile.Password = Utf8ToWide(passraw);
   }
 
   ::CredFree(cred);

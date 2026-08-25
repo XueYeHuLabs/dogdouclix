@@ -11,21 +11,17 @@ typedef struct _CRED_PROFILE {
   std::optional<std::wstring> Username;
   std::optional<std::wstring> Domain;
   std::optional<std::wstring> Password;
-  std::vector<ENV_MUTATION> EnvMutations;
-  std::optional<std::wstring> WorkingDirectory;
-  std::optional<std::wstring> DesktopStation;
-  bool LoadUserProfile{false};
 } CRED_PROFILE;
 
 class CredManager {
 public:
-  // Saves or updates a profile in Windows Credential Manager
+  // Saves or updates an OS credential profile in Windows Credential Manager
   static bool SaveProfile(
     const CRED_PROFILE& Profile,
     std::string* OutError = nullptr
   );
 
-  // Reads a profile from Windows Credential Manager
+  // Reads an OS credential profile from Windows Credential Manager
   static std::optional<CRED_PROFILE> GetProfile(
     const std::wstring& ProfileName,
     std::string* OutError = nullptr
@@ -37,7 +33,7 @@ public:
     std::string* OutError = nullptr
   );
 
-  // Lists all dogdouclix profile names stored in Windows Credential Manager
+  // Lists all dogdouclix credential profile names in Windows Credential Manager
   static std::vector<std::wstring> ListProfiles(
     std::string* OutError = nullptr
   );

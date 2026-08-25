@@ -211,10 +211,6 @@ static void TestCredManagerCrud() {
   prof.Username = L"VaultAdmin";
   prof.Domain = L"LOCALDOM";
   prof.Password = L"SuperSecretPass999!";
-  prof.WorkingDirectory = L"C:\\VaultWork";
-  prof.LoadUserProfile = true;
-  prof.EnvMutations.push_back({ L"VAULT_TOKEN", L"SecretTokenXYZ", dogdouclix::EnvMutationSet });
-  prof.EnvMutations.push_back({ L"STRIPPED_SECRET", L"", dogdouclix::EnvMutationRemove });
 
   std::string error;
   bool saved = dogdouclix::CredManager::SaveProfile(prof, &error);
@@ -226,9 +222,6 @@ static void TestCredManagerCrud() {
   TEST_ASSERT(loaded->Username.has_value() && *loaded->Username == L"VaultAdmin", "Username matches");
   TEST_ASSERT(loaded->Domain.has_value() && *loaded->Domain == L"LOCALDOM", "Domain matches");
   TEST_ASSERT(loaded->Password.has_value() && *loaded->Password == L"SuperSecretPass999!", "Password matches");
-  TEST_ASSERT(loaded->WorkingDirectory.has_value() && *loaded->WorkingDirectory == L"C:\\VaultWork", "CWD matches");
-  TEST_ASSERT(loaded->LoadUserProfile == true, "LoadUserProfile is true");
-  TEST_ASSERT(loaded->EnvMutations.size() == 2, "2 env mutations present");
 
   auto list = dogdouclix::CredManager::ListProfiles(&error);
   bool foundinlist = false;
@@ -250,14 +243,13 @@ static void TestCredManagerCrud() {
 static void TestProfileConfigIntegration() {
   dogdouclix::CRED_PROFILE prof;
   prof.Name = L"TEST_CONFIG_INT_PROFILE";
-  prof.EnvMutations.push_back({ L"VAULT_INJECTED_SEC", L"VaultTokenLive555", dogdouclix::EnvMutationSet });
-  prof.EnvMutations.push_back({ L"DOGDOUCLIX_REMOVED_SEC", L"", dogdouclix::EnvMutationRemove });
+  prof.Username = L"TestAdminUser";
+  prof.Domain = L"CORPDOM";
+  prof.Password = L"VaultTokenLive555";
 
   std::string error;
   bool saved = dogdouclix::CredManager::SaveProfile(prof, &error);
   TEST_ASSERT(saved, "SaveProfile for integration test succeeded");
-
-  ::SetEnvironmentVariableW(L"DOGDOUCLIX_REMOVED_SEC", L"OldSecret");
 
   wchar_t temppath[MAX_PATH] = {0};
   ::GetTempPathW(MAX_PATH, temppath);
@@ -266,26 +258,27 @@ static void TestProfileConfigIntegration() {
   std::ofstream outcfg(cfgpath, std::ios::binary);
   outcfg << R"({
     "target": "cmd.exe",
-    "profile": "TEST_CONFIG_INT_PROFILE"
+    "cwd": "C:\\Temp",
+    "user": {
+      "profile": "TEST_CONFIG_INT_PROFILE"
+    },
+    "env_set": {
+      "MY_CONFIG_VAR": "ConfigValue123"
+    }
   })";
   outcfg.close();
 
   auto cfg = dogdouclix::ConfigParser::ParseFile(cfgpath);
   TEST_ASSERT(cfg.has_value(), "ParseFile with profile reference succeeded");
-  TEST_ASSERT(cfg->EnvMutations.size() == 2, "2 mutations merged from profile");
-
-  dogdouclix::FORWARDER_OPTIONS options;
-  options.TargetExecutable = *cfg->Target;
-  options.ContextOptions.EnvMutations = cfg->EnvMutations;
-  options.FullCommandLine = L"cmd.exe /c if not defined DOGDOUCLIX_REMOVED_SEC if \"%VAULT_INJECTED_SEC%\"==\"VaultTokenLive555\" exit 0";
-
-  auto res = dogdouclix::Forwarder::Execute(options);
-  TEST_ASSERT(res.Succeeded, "Execution with profile-injected secrets succeeded");
-  TEST_ASSERT(res.ExitCode == 0, "Exit code is 0 (child verified secret injection from Credential Manager)");
+  TEST_ASSERT(cfg->UserContext.has_value(), "UserContext resolved");
+  TEST_ASSERT(cfg->UserContext->Username.has_value() && *cfg->UserContext->Username == L"TestAdminUser", "Username injected from profile");
+  TEST_ASSERT(cfg->UserContext->Domain.has_value() && *cfg->UserContext->Domain == L"CORPDOM", "Domain injected from profile");
+  TEST_ASSERT(cfg->UserContext->Password.has_value() && *cfg->UserContext->Password == L"VaultTokenLive555", "Password injected from profile");
+  TEST_ASSERT(cfg->WorkingDirectory.has_value() && *cfg->WorkingDirectory == L"C:\\Temp", "CWD comes from file");
+  TEST_ASSERT(cfg->EnvMutations.size() == 1, "Env mutations come from file");
 
   dogdouclix::CredManager::DeleteProfile(L"TEST_CONFIG_INT_PROFILE");
   ::DeleteFileW(cfgpath.c_str());
-  ::SetEnvironmentVariableW(L"DOGDOUCLIX_REMOVED_SEC", nullptr);
 }
 
 static void TestEnvironmentBlockMutations() {

@@ -2,7 +2,7 @@
 
 `dogdouclix` is a high-performance, lightweight (<150 KB) native Windows CLI interception, forwarding, and context-governance engine written in C++20.
 
-It acts as an execution proxy between a caller and a target executable, ensuring verbatim command-line argument pass-through, real-time unbuffered I/O stream streaming, exit code fidelity, session/desktop inheritance, environment isolation/mutations, DPAPI-secured secret management, and cross-user context transitions.
+It acts as an execution proxy between a caller and a target executable, ensuring verbatim command-line argument pass-through, real-time unbuffered I/O stream streaming, exit code fidelity, session/desktop inheritance, environment isolation/mutations, DPAPI-secured OS credential management, and cross-user context transitions.
 
 ---
 
@@ -15,12 +15,12 @@ graph TD
   Caller[Caller Process] --> Entry{Binary Name & Config}
   Entry -->|Named dogdouclix.exe| Explicit[Explicit Forwarder Mode]
   Entry -->|Renamed / Shim / Companion Config| Transparent[Transparent Proxy / Drop-in Shim Mode]
-  Explicit --> ResolveProf{Profile in Credential Manager?}
-  Transparent --> ResolveProf
-  ResolveProf -->|Yes| LoadVault[Fetch & Decrypt DPAPI Secrets]
-  ResolveProf -->|No| Context[Apply Context Transformations & Env Mutations]
-  LoadVault --> Context
-  Context --> Launcher[Low-level Win32 Process Launcher]
+  Explicit --> Context[Load Config: Target, CWD, Env Mutations]
+  Transparent --> Context
+  Context --> ResolveCred{User Profile in CredManager?}
+  ResolveCred -->|Yes| LoadCred[Fetch & Decrypt OS Password via DPAPI]
+  ResolveCred -->|No| Launcher[Low-level Win32 Process Launcher]
+  LoadCred --> Launcher
   Launcher --> Target[Target Child Executable]
 ```
 
@@ -43,7 +43,7 @@ Used when DogdouClix is deployed as a drop-in replacement for a target executabl
 ### Execution Options
 | Flag | Parameter | Description |
 | :--- | :--- | :--- |
-| `--clix-profile` | `<NAME>` | Loads execution context from a secure Windows Credential Manager profile. |
+| `--clix-profile` | `<NAME>` | Loads OS user credentials from a secure Windows Credential Manager profile. |
 | `--clix-config` | `<FILE>` | Loads an external companion configuration (`.json` or `.ini`). |
 | `--clix-env-set` | `KEY=VALUE` | Inserts or overwrites an environment variable in the child process. |
 | `--clix-env-remove` | `KEY` | Unsets/redacts an environment variable in the child process. |
@@ -57,32 +57,30 @@ Used when DogdouClix is deployed as a drop-in replacement for a target executabl
 | `--clix-version`, `-V` | _(None)_ | Displays version information. |
 | `--clix-help`, `-h` | _(None)_ | Displays help and usage message. |
 
-### Profile Management Commands
+### Credential Profile Management Commands
 | Command | Parameters | Description |
 | :--- | :--- | :--- |
-| `--clix-profile-set` | `<NAME> [options...]` | Creates or updates a profile stored securely in Windows Credential Manager. |
-| `--clix-profile-get` | `<NAME>` | Displays metadata and configuration for a registered profile (password masked). |
-| `--clix-profile-delete` | `<NAME>` | Deletes a profile from Windows Credential Manager. |
-| `--clix-profile-list` | _(None)_ | Lists all registered DogdouClix profiles. |
+| `--clix-profile-set` | `<NAME> [options...]` | Creates or updates an OS credential profile in Windows Credential Manager. |
+| `--clix-profile-get` | `<NAME>` | Displays username and domain for a registered profile (password protected). |
+| `--clix-profile-delete` | `<NAME>` | Deletes an OS credential profile from Windows Credential Manager. |
+| `--clix-profile-list` | _(None)_ | Lists all registered DogdouClix credential profiles. |
 
 ### CLI Usage Examples
 ```powershell
-# 1. Register a secure profile in Windows Credential Manager
-dogdouclix.exe --clix-profile-set ProductionVault `
+# 1. Register an OS user credential profile in Windows Credential Manager
+dogdouclix.exe --clix-profile-set DeployAdmin `
   --clix-user DeployBot `
   --clix-domain CORP `
-  --clix-password "SecretPass123!" `
-  --clix-env-set "API_SECRET=LiveVaultToken999" `
-  --clix-env-remove "STALE_LOCAL_TOKEN"
+  --clix-password "SuperSecretPass123!"
 
 # 2. View registered profiles
 dogdouclix.exe --clix-profile-list
-dogdouclix.exe --clix-profile-get ProductionVault
+dogdouclix.exe --clix-profile-get DeployAdmin
 
-# 3. Execute target using secure profile (no secrets exposed on command line)
-dogdouclix.exe --clix-profile ProductionVault python.exe deploy.py
+# 3. Execute target using secure OS credentials (no passwords exposed on command line)
+dogdouclix.exe --clix-profile DeployAdmin python.exe deploy.py
 
-# 4. Inject a secret environment variable ad-hoc without altering parent shell
+# 4. Inject an environment variable ad-hoc without altering parent shell
 dogdouclix.exe --clix-env-set API_KEY=secret_token_123 python.exe fetch_data.py
 
 # 5. Redact a sensitive token from child environment
@@ -94,13 +92,18 @@ dogdouclix.exe --clix-cwd "D:\Project" -- git.exe log -n 5
 
 ---
 
-## 3. Windows Credential Manager Profile Infrastructure
+## 3. Windows Credential Manager & File Separation Principles
 
-DogdouClix provides a built-in infrastructure for protecting credentials and API secrets using the native **Windows Credential Manager** (`wincred.h`):
+DogdouClix separates responsibilities between **file-based configuration** and **OS-level secure credential storage**:
 
-- **DPAPI Encryption**: All stored passwords and environment secrets are encrypted by Windows Data Protection API (DPAPI) and tied to the user session.
-- **Zero Plaintext in Version Control**: Configuration files committed to git only contain the profile name (e.g. `"profile": "ProductionVault"`), completely eliminating hardcoded plaintext secrets.
-- **Auto-Injection**: At process launch, DogdouClix retrieves the profile directly from Windows Credential Manager, decrypts the environment variables in memory, and passes them into the child process.
+- **OS Credential Protection (`CredManager`)**:
+  - Strictly manages Windows authentication credentials (`username`, `domain`, `password`).
+  - Stored inside Windows Credential Manager using `CRED_TYPE_GENERIC` and encrypted via Windows DPAPI.
+  - Eliminates the need to write plaintext Windows passwords in files or scripts.
+- **Transparent File Configuration (`.clix.json` / `.clix.ini`)**:
+  - Manages execution rules (`target`, `cwd`, `desktop`, `env_set`, `env_remove`, `load_profile`).
+  - Plain text and transparent to users; can be inspected, maintained, or edited with any standard text editor.
+  - References the Credential Manager profile under `"user": { "profile": "DeployAdmin" }`.
 
 ---
 
@@ -117,12 +120,15 @@ When acting as a transparent shim, DogdouClix automatically searches for compani
 ```json
 {
   "target": "C:\\Program Files\\Git\\cmd\\git.exe",
-  "profile": "ProductionVault",
   "cwd": "D:\\workspace",
   "desktop": "winsta0\\default",
+  "user": {
+    "profile": "DeployAdmin",
+    "load_profile": true
+  },
   "env_set": {
     "SSH_AUTH_SOCK": "C:\\Secrets\\ssh-agent.sock",
-    "MY_INJECTED_VAR": "NonSecretConfig"
+    "CUSTOM_CONFIG_KEY": "InjectedValue"
   },
   "env_remove": [
     "CALLER_PRIVATE_TOKEN",
@@ -135,13 +141,16 @@ When acting as a transparent shim, DogdouClix automatically searches for compani
 ```ini
 [target]
 executable = C:\Program Files\Git\cmd\git.exe
-profile = ProductionVault
 cwd = D:\workspace
 desktop = winsta0\default
 
+[user]
+profile = DeployAdmin
+load_profile = true
+
 [env.set]
 SSH_AUTH_SOCK = C:\Secrets\ssh-agent.sock
-MY_INJECTED_VAR = NonSecretConfig
+CUSTOM_CONFIG_KEY = InjectedValue
 
 [env.remove]
 CALLER_PRIVATE_TOKEN = 1
@@ -164,7 +173,7 @@ When DogdouClix is renamed to a target binary (e.g., `kubectl.exe`) without an e
 
 > [!IMPORTANT]
 > **Environment Isolation Guarantee**
-> All environment mutations (`--clix-env-set`, `--clix-env-remove`, and configuration/profile rules) are applied exclusively to the newly spawned child process via an isolated double-null-terminated Unicode environment block. **The caller's parent environment is never polluted or modified.**
+> All environment mutations (`--clix-env-set`, `--clix-env-remove`, and configuration rules) are applied exclusively to the newly spawned child process via an isolated double-null-terminated Unicode environment block. **The caller's parent environment is never polluted or modified.**
 
 > [!IMPORTANT]
 > **Handle Inheritance & Stream Transparency**

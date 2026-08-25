@@ -150,7 +150,7 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
     } else if (arg == L"--clix-help" || arg == L"-h") {
       std::wcout << L"Usage: dogdouclix [options] [--] <target.exe> [args...]\n\n"
                  << L"Execution Options:\n"
-                 << L"  --clix-profile <NAME>      Load context profile from Windows Credential Manager\n"
+                 << L"  --clix-profile <NAME>      Load OS user credentials from Windows Credential Manager\n"
                  << L"  --clix-config <FILE>       Load companion configuration file (.json / .ini)\n"
                  << L"  --clix-env-set KEY=VAL     Insert or overwrite an environment variable\n"
                  << L"  --clix-env-remove KEY      Unset an environment variable in child\n"
@@ -161,11 +161,11 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
                  << L"  --clix-password <PWD>      Password for user credentials\n"
                  << L"  --clix-load-profile        Load user profile when switching user\n"
                  << L"  --                         Stop option processing; next token is target executable\n\n"
-                 << L"Profile Management Commands:\n"
-                 << L"  --clix-profile-set <NAME> [opts]   Save/update profile in Windows Credential Manager\n"
-                 << L"  --clix-profile-get <NAME>          Display profile metadata from Credential Manager\n"
-                 << L"  --clix-profile-delete <NAME>       Delete profile from Windows Credential Manager\n"
-                 << L"  --clix-profile-list                List all registered profiles\n";
+                 << L"Credential Management Commands:\n"
+                 << L"  --clix-profile-set <NAME> [opts]   Save/update OS credentials in Credential Manager\n"
+                 << L"  --clix-profile-get <NAME>          Display credential metadata from Credential Manager\n"
+                 << L"  --clix-profile-delete <NAME>       Delete credential profile from Credential Manager\n"
+                 << L"  --clix-profile-list                List all registered credential profiles\n";
       return std::nullopt;
     } else if (arg == L"--clix-profile-list") {
       std::string err;
@@ -190,19 +190,6 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
         if (prof->Username.has_value()) std::wcout << L"  Username: " << *prof->Username << L"\n";
         if (prof->Domain.has_value()) std::wcout << L"  Domain: " << *prof->Domain << L"\n";
         if (prof->Password.has_value()) std::wcout << L"  Password: [PROTECTED (" << prof->Password->size() << L" chars)]\n";
-        if (prof->WorkingDirectory.has_value()) std::wcout << L"  CWD: " << *prof->WorkingDirectory << L"\n";
-        if (prof->DesktopStation.has_value()) std::wcout << L"  Desktop: " << *prof->DesktopStation << L"\n";
-        if (prof->LoadUserProfile) std::wcout << L"  Load User Profile: true\n";
-        if (!prof->EnvMutations.empty()) {
-          std::wcout << L"  Environment Mutations (" << prof->EnvMutations.size() << L"):\n";
-          for (const auto& m : prof->EnvMutations) {
-            if (m.Type == EnvMutationSet) {
-              std::wcout << L"    + " << m.Key << L"=" << m.Value << L"\n";
-            } else {
-              std::wcout << L"    - " << m.Key << L"\n";
-            }
-          }
-        }
       }
       return std::nullopt;
     } else if (arg == L"--clix-profile-delete" && targetargindex + 1 < Argc) {
@@ -229,33 +216,6 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
         } else if (subarg == L"--clix-password" && targetargindex + 1 < Argc) {
           newprof.Password = Argv[targetargindex + 1];
           targetargindex += 2;
-        } else if (subarg == L"--clix-load-profile") {
-          newprof.LoadUserProfile = true;
-          targetargindex += 1;
-        } else if (subarg == L"--clix-cwd" && targetargindex + 1 < Argc) {
-          newprof.WorkingDirectory = Argv[targetargindex + 1];
-          targetargindex += 2;
-        } else if (subarg == L"--clix-desktop" && targetargindex + 1 < Argc) {
-          newprof.DesktopStation = Argv[targetargindex + 1];
-          targetargindex += 2;
-        } else if (subarg == L"--clix-env-set" && targetargindex + 1 < Argc) {
-          std::wstring_view kv = Argv[targetargindex + 1];
-          size_t eqpos = kv.find(L'=');
-          if (eqpos != std::wstring_view::npos) {
-            newprof.EnvMutations.push_back({
-              std::wstring(kv.substr(0, eqpos)),
-              std::wstring(kv.substr(eqpos + 1)),
-              EnvMutationSet
-            });
-          }
-          targetargindex += 2;
-        } else if (subarg == L"--clix-env-remove" && targetargindex + 1 < Argc) {
-          newprof.EnvMutations.push_back({
-            std::wstring(Argv[targetargindex + 1]),
-            L"",
-            EnvMutationRemove
-          });
-          targetargindex += 2;
         } else {
           break;
         }
@@ -272,21 +232,12 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
       std::string err;
       auto prof = CredManager::GetProfile(profname, &err);
       if (prof.has_value()) {
-        options.ContextOptions.EnvMutations.insert(
-          options.ContextOptions.EnvMutations.end(),
-          prof->EnvMutations.begin(),
-          prof->EnvMutations.end()
-        );
-        if (prof->WorkingDirectory.has_value()) options.ContextOptions.WorkingDirectory = prof->WorkingDirectory;
-        if (prof->DesktopStation.has_value()) options.ContextOptions.DesktopStation = prof->DesktopStation;
-        if (prof->Username.has_value() || prof->Password.has_value() || prof->Domain.has_value()) {
-          USER_CONTEXT_CONFIG ucfg{};
-          ucfg.Username = prof->Username;
-          ucfg.Domain = prof->Domain;
-          ucfg.Password = prof->Password;
-          ucfg.LoadUserProfile = prof->LoadUserProfile;
-          options.ContextOptions.UserContext = ucfg;
+        if (!options.ContextOptions.UserContext.has_value()) {
+          options.ContextOptions.UserContext = USER_CONTEXT_CONFIG{};
         }
+        if (prof->Username.has_value()) options.ContextOptions.UserContext->Username = prof->Username;
+        if (prof->Domain.has_value()) options.ContextOptions.UserContext->Domain = prof->Domain;
+        if (prof->Password.has_value()) options.ContextOptions.UserContext->Password = prof->Password;
       } else {
         std::wcerr << L"dogdouclix warning: " << Utf8ToWide(err) << L"\n";
       }

@@ -121,34 +121,22 @@ void ConfigParser::ResolveAndApplyProfile(CLIX_COMPANION_CONFIG& Config) {
     return;
   }
 
-  // Merge profile mutations before existing config mutations
-  Config.EnvMutations.insert(
-    Config.EnvMutations.begin(),
-    prof->EnvMutations.begin(),
-    prof->EnvMutations.end()
-  );
-
-  if (!Config.WorkingDirectory.has_value() && prof->WorkingDirectory.has_value()) {
-    Config.WorkingDirectory = prof->WorkingDirectory;
-  }
-
-  if (!Config.DesktopStation.has_value() && prof->DesktopStation.has_value()) {
-    Config.DesktopStation = prof->DesktopStation;
-  }
-
-  if (prof->Username.has_value() || prof->Password.has_value() || prof->Domain.has_value() || prof->LoadUserProfile) {
-    if (!Config.UserContext.has_value()) {
-      USER_CONTEXT_CONFIG ucfg{};
-      ucfg.Username = prof->Username;
-      ucfg.Domain = prof->Domain;
-      ucfg.Password = prof->Password;
-      ucfg.LoadUserProfile = prof->LoadUserProfile;
-      Config.UserContext = ucfg;
-    } else {
-      if (!Config.UserContext->Username.has_value()) Config.UserContext->Username = prof->Username;
-      if (!Config.UserContext->Domain.has_value()) Config.UserContext->Domain = prof->Domain;
-      if (!Config.UserContext->Password.has_value()) Config.UserContext->Password = prof->Password;
-      if (prof->LoadUserProfile) Config.UserContext->LoadUserProfile = true;
+  // Populate OS identity credentials from Credential Manager
+  if (!Config.UserContext.has_value()) {
+    USER_CONTEXT_CONFIG ucfg{};
+    ucfg.Username = prof->Username;
+    ucfg.Domain = prof->Domain;
+    ucfg.Password = prof->Password;
+    Config.UserContext = ucfg;
+  } else {
+    if (!Config.UserContext->Username.has_value() && prof->Username.has_value()) {
+      Config.UserContext->Username = prof->Username;
+    }
+    if (!Config.UserContext->Domain.has_value() && prof->Domain.has_value()) {
+      Config.UserContext->Domain = prof->Domain;
+    }
+    if (!Config.UserContext->Password.has_value() && prof->Password.has_value()) {
+      Config.UserContext->Password = prof->Password;
     }
   }
 }
@@ -190,7 +178,7 @@ std::optional<CLIX_COMPANION_CONFIG> ConfigParser::ParseJson(std::string_view Js
         while (pos < JsonContent.size() && !MatchChar(JsonContent, pos, '}')) {
           auto pkey = ParseJsonString(JsonContent, pos);
           if (pkey.has_value() && MatchChar(JsonContent, pos, ':')) {
-            if (*pkey == "name") {
+            if (*pkey == "name" || *pkey == "profile") {
               auto pval = ParseJsonString(JsonContent, pos);
               if (pval.has_value()) config.Profile = Utf8ToWide(*pval);
             } else {
@@ -255,6 +243,9 @@ std::optional<CLIX_COMPANION_CONFIG> ConfigParser::ParseJson(std::string_view Js
           if (*ukey == "username" || *ukey == "user") {
             auto uval = ParseJsonString(JsonContent, pos);
             if (uval.has_value()) usercfg.Username = Utf8ToWide(*uval);
+          } else if (*ukey == "profile" || *ukey == "cred_profile") {
+            auto uval = ParseJsonString(JsonContent, pos);
+            if (uval.has_value()) config.Profile = Utf8ToWide(*uval);
           } else if (*ukey == "domain") {
             auto uval = ParseJsonString(JsonContent, pos);
             if (uval.has_value()) usercfg.Domain = Utf8ToWide(*uval);
@@ -339,6 +330,8 @@ std::optional<CLIX_COMPANION_CONFIG> ConfigParser::ParseIni(std::string_view Ini
       }
       if (key == "username" || key == "user") {
         config.UserContext->Username = Utf8ToWide(val);
+      } else if (key == "profile" || key == "cred_profile") {
+        config.Profile = Utf8ToWide(val);
       } else if (key == "domain") {
         config.UserContext->Domain = Utf8ToWide(val);
       } else if (key == "password") {

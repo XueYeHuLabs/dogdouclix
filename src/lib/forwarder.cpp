@@ -96,9 +96,42 @@ std::wstring Forwarder::BuildTargetCommandLine(
 std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
   int Argc,
   wchar_t* Argv[],
-  const wchar_t* RawCommandLine
+  const wchar_t* RawCommandLine,
+  const std::wstring& CustomSelfExe
 ) {
-  if (Argc < 2 || RawCommandLine == nullptr) {
+  if (RawCommandLine == nullptr) {
+    return std::nullopt;
+  }
+
+  // 1. Check for transparent shim mode
+  auto resolved = TargetResolver::Resolve(CustomSelfExe);
+  if (resolved.has_value() && resolved->IsTransparentShim) {
+    if (resolved->TargetExecutable.empty()) {
+      std::wcerr << L"dogdouclix: Transparent shim target not found.\n";
+      return std::nullopt;
+    }
+
+    FORWARDER_OPTIONS shimopts;
+    shimopts.IsTransparentMode = true;
+    shimopts.TargetExecutable = resolved->TargetExecutable;
+
+    if (resolved->LoadedConfig.has_value()) {
+      shimopts.ContextOptions.EnvMutations = resolved->LoadedConfig->EnvMutations;
+      shimopts.ContextOptions.WorkingDirectory = resolved->LoadedConfig->WorkingDirectory;
+      shimopts.ContextOptions.DesktopStation = resolved->LoadedConfig->DesktopStation;
+      shimopts.ContextOptions.UserContext = resolved->LoadedConfig->UserContext;
+    }
+
+    const wchar_t* rawcursor = RawCommandLine;
+    rawcursor = SkipOneToken(rawcursor);
+    const wchar_t* rawtail = SkipWhitespace(rawcursor);
+
+    shimopts.FullCommandLine = BuildTargetCommandLine(shimopts.TargetExecutable, rawtail);
+    return shimopts;
+  }
+
+  // 2. Explicit Forwarder Mode
+  if (Argc < 2) {
     return std::nullopt;
   }
 
@@ -116,6 +149,7 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
     } else if (arg == L"--clix-help" || arg == L"-h") {
       std::wcout << L"Usage: dogdouclix [options] [--] <target.exe> [args...]\n\n"
                  << L"Options:\n"
+                 << L"  --clix-config <FILE>       Load companion configuration file (.json / .ini)\n"
                  << L"  --clix-env-set KEY=VAL     Insert or overwrite an environment variable\n"
                  << L"  --clix-env-remove KEY      Unset an environment variable in child\n"
                  << L"  --clix-cwd <DIR>           Set working directory for target process\n"
@@ -128,6 +162,22 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
                  << L"  --clix-version, -V         Show version\n"
                  << L"  --clix-help, -h            Show this help message\n";
       return std::nullopt;
+    } else if (arg == L"--clix-config" && targetargindex + 1 < Argc) {
+      auto cfg = ConfigParser::ParseFile(Argv[targetargindex + 1]);
+      if (cfg.has_value()) {
+        options.ContextOptions.EnvMutations.insert(
+          options.ContextOptions.EnvMutations.end(),
+          cfg->EnvMutations.begin(),
+          cfg->EnvMutations.end()
+        );
+        if (cfg->WorkingDirectory.has_value()) options.ContextOptions.WorkingDirectory = cfg->WorkingDirectory;
+        if (cfg->DesktopStation.has_value()) options.ContextOptions.DesktopStation = cfg->DesktopStation;
+        if (cfg->UserContext.has_value()) options.ContextOptions.UserContext = cfg->UserContext;
+        if (cfg->Target.has_value()) options.TargetExecutable = *cfg->Target;
+      }
+      targetargindex += 2;
+      rawcursor = SkipOneToken(rawcursor);
+      rawcursor = SkipOneToken(rawcursor);
     } else if (arg == L"--clix-env-set" && targetargindex + 1 < Argc) {
       std::wstring_view kv = Argv[targetargindex + 1];
       size_t eqpos = kv.find(L'=');
@@ -200,18 +250,24 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
     }
   }
 
-  if (targetargindex >= Argc) {
-    return std::nullopt;
+  if (targetargindex < Argc) {
+    options.TargetExecutable = Argv[targetargindex];
+    rawcursor = SkipWhitespace(rawcursor);
+
+    const wchar_t* rawtail = SkipOneToken(rawcursor);
+    rawtail = SkipWhitespace(rawtail);
+
+    options.FullCommandLine = BuildTargetCommandLine(options.TargetExecutable, rawtail);
+    return options;
   }
 
-  options.TargetExecutable = Argv[targetargindex];
-  rawcursor = SkipWhitespace(rawcursor);
+  if (!options.TargetExecutable.empty()) {
+    rawcursor = SkipWhitespace(rawcursor);
+    options.FullCommandLine = BuildTargetCommandLine(options.TargetExecutable, rawcursor);
+    return options;
+  }
 
-  const wchar_t* rawtail = SkipOneToken(rawcursor);
-  rawtail = SkipWhitespace(rawtail);
-
-  options.FullCommandLine = BuildTargetCommandLine(options.TargetExecutable, rawtail);
-  return options;
+  return std::nullopt;
 }
 
 FORWARDING_RESULT Forwarder::Execute(const FORWARDER_OPTIONS& Options) {

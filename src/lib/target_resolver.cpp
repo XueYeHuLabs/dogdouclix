@@ -130,7 +130,8 @@ std::optional<TARGET_RESOLUTION> TargetResolver::Resolve(const std::wstring& Cus
   SplitPath(selfpath, dir, filename, basename);
 
   TARGET_RESOLUTION res;
-  res.IsTransparentShim = (::_wcsicmp(basename.c_str(), L"dogdouclix") != 0);
+  bool isexplicit = (::_wcsnicmp(basename.c_str(), L"dogdouclix", 10) == 0);
+  res.IsTransparentShim = !isexplicit;
 
   // Discover companion configuration files
   std::vector<std::wstring> configcandidates = {

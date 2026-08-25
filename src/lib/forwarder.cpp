@@ -137,10 +137,10 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
 
   while (targetargindex < Argc) {
     std::wstring_view arg = Argv[targetargindex];
-    if (arg == L"--clix-version" || arg == L"-V") {
+    if (arg == L"--clix-version" || (!options.IsTransparentMode && arg == L"-V")) {
       std::wcout << L"dogdouclix version " << Utf8ToWide(VersionString) << std::endl;
       return std::nullopt;
-    } else if (arg == L"--clix-help" || arg == L"-h") {
+    } else if (arg == L"--clix-help" || (!options.IsTransparentMode && arg == L"-h")) {
       std::wcout << L"Usage: dogdouclix [options] [--] <target.exe> [args...]\n\n"
                  << L"Execution Options:\n"
                  << L"  --clix-profile <NAME>      Load OS user credentials from Windows Credential Manager\n"

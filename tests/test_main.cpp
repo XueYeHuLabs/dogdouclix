@@ -486,6 +486,57 @@ static void TestTransparentShimCliOverride() {
   ::DeleteFileW(dummycfg.c_str());
 }
 
+static void TestTransparentShimShortFlagsPassthrough() {
+  wchar_t temppath[MAX_PATH] = {0};
+  ::GetTempPathW(MAX_PATH, temppath);
+
+  std::wstring dummyexe = std::wstring(temppath) + L"shim_flag_test.exe";
+  std::wstring dummycfg = std::wstring(temppath) + L"shim_flag_test.clix.json";
+
+  std::ofstream outcfg(dummycfg, std::ios::binary);
+  outcfg << R"({ "target": "cmd.exe" })";
+  outcfg.close();
+
+  // Test -h in transparent shim mode is NOT intercepted and passed through as tail argument
+  {
+    const wchar_t* rawcmd = L"shim_flag_test.exe -h";
+    wchar_t a0[] = L"shim_flag_test.exe";
+    wchar_t a1[] = L"-h";
+    wchar_t* argv[] = { a0, a1 };
+
+    auto options = dogdouclix::Forwarder::ParseCommandLine(2, argv, rawcmd, dummyexe);
+    TEST_ASSERT(options.has_value(), "ParseCommandLine transparent mode with -h returns options (not intercepted)");
+    TEST_ASSERT(options->IsTransparentMode, "IsTransparentMode is true");
+    TEST_ASSERT(options->FullCommandLine.find(L"-h") != std::wstring::npos, "Full command line contains -h for target");
+  }
+
+  // Test -V in transparent shim mode is NOT intercepted and passed through as tail argument
+  {
+    const wchar_t* rawcmd = L"shim_flag_test.exe -V";
+    wchar_t a0[] = L"shim_flag_test.exe";
+    wchar_t a1[] = L"-V";
+    wchar_t* argv[] = { a0, a1 };
+
+    auto options = dogdouclix::Forwarder::ParseCommandLine(2, argv, rawcmd, dummyexe);
+    TEST_ASSERT(options.has_value(), "ParseCommandLine transparent mode with -V returns options (not intercepted)");
+    TEST_ASSERT(options->IsTransparentMode, "IsTransparentMode is true");
+    TEST_ASSERT(options->FullCommandLine.find(L"-V") != std::wstring::npos, "Full command line contains -V for target");
+  }
+
+  // Test --clix-help in transparent shim mode IS intercepted
+  {
+    const wchar_t* rawcmd = L"shim_flag_test.exe --clix-help";
+    wchar_t a0[] = L"shim_flag_test.exe";
+    wchar_t a1[] = L"--clix-help";
+    wchar_t* argv[] = { a0, a1 };
+
+    auto options = dogdouclix::Forwarder::ParseCommandLine(2, argv, rawcmd, dummyexe);
+    TEST_ASSERT(!options.has_value(), "ParseCommandLine transparent mode with --clix-help is intercepted");
+  }
+
+  ::DeleteFileW(dummycfg.c_str());
+}
+
 static void TestTemplateGeneration() {
   std::string json = dogdouclix::ConfigParser::GenerateTemplateJson();
   TEST_ASSERT(!json.empty(), "GenerateTemplateJson produces non-empty string");
@@ -609,6 +660,7 @@ int main() {
   TestTargetResolverCompanionConfig();
   TestForwarderTransparentShimMode();
   TestTransparentShimCliOverride();
+  TestTransparentShimShortFlagsPassthrough();
   TestCredManagerCrud();
   TestProfileConfigIntegration();
   TestEnvironmentBlockMutations();

@@ -52,6 +52,7 @@ Used when DogdouClix is deployed as a drop-in replacement for a target executabl
 | `--clix-user` | `<USERNAME>` | Executes the target under the specified username. |
 | `--clix-domain` | `<DOMAIN>` | Windows domain for user credentials. |
 | `--clix-password` | `<PASSWORD>` | Password for user authentication. |
+| `--clix-logon-type` | `<TYPE>` | Specifies logon type (`interactive`, `batch`, `service`, `network`, `new_credentials`, or numeric DWORD). |
 | `--clix-load-profile` | _(None)_ | Loads the target user's profile hive into the registry. |
 | `--` | _(None)_ | Explicit delimiter. All subsequent tokens are treated as the target and its arguments. |
 | `--clix-version`, `-V` | _(None)_ | Displays version information. |
@@ -103,6 +104,10 @@ dogdouclix.exe --clix-env-remove AWS_SECRET_ACCESS_KEY node.exe deploy.js
 dogdouclix.exe --clix-cwd "D:\Project" -- git.exe log -n 5
 ```
 
+> [!WARNING]
+> **Plaintext Password Exposure Risk**
+> Passing credentials directly via `--clix-password` exposes plaintext strings in the OS process command-line buffer (`GetCommandLineW`), making them observable via Task Manager, Process Explorer, or system audit logs. In production and CI/CD pipelines, **always** register credentials in Windows Credential Manager via `--clix-profile-set` and reference them via `--clix-profile` or companion configurations.
+
 ---
 
 ## 3. Windows Credential Manager & File Separation Principles
@@ -137,6 +142,7 @@ When acting as a transparent shim, DogdouClix automatically searches for compani
   "desktop": "winsta0\\default",
   "user": {
     "profile": "DeployAdmin",
+    "logon_type": "interactive",
     "load_profile": true
   },
   "env_set": {
@@ -159,6 +165,7 @@ desktop = winsta0\default
 
 [user]
 profile = DeployAdmin
+logon_type = interactive
 load_profile = true
 
 [env.set]

@@ -42,7 +42,6 @@ public:
     std::string* ErrorMessage = nullptr
   );
 
-public:
   ~ConfigParser() = default;
   ConfigParser() = default;
 };

@@ -43,7 +43,6 @@ Welcome to the `dogdouclix` repository. This file defines the guidelines, archit
 ### Language-Specific Code Generation Instructions
 
 * Before generating or modifying C++ code, agents MUST read and follow `.agents/instructions/cpp-code-generation.md`.
-* If a task touches both C++ and Lua, agents MUST read both instruction files before making code changes.
 * These files contain detailed, language-specific rules. `AGENTS.md` intentionally keeps only repository-wide constraints and the required routing to those rules.
 
 ---

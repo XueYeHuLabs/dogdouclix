@@ -118,7 +118,6 @@ static void TestCommandLineParsing() {
   TEST_ASSERT(dashoptions->ContextOptions.WorkingDirectory == L"L:\\temp", "Working directory parsed correctly");
   TEST_ASSERT(dashoptions->FullCommandLine == L"git.exe log -n 5", "Full command line matches tail arguments");
 
-  // Test user context command line parsing
   const wchar_t* rawusercmd = L"dogdouclix.exe --clix-user TestUser --clix-domain CORP --clix-load-profile cmd.exe /c whoami";
   wchar_t u0[] = L"dogdouclix.exe";
   wchar_t u1[] = L"--clix-user";
@@ -188,8 +187,21 @@ static void TestPipedStreamPassThrough() {
   TEST_ASSERT(captured.find("PipedOutputVerificationString") != std::string::npos, "Piped stream captured expected child output");
 }
 
+static void TestWorkingDirectorySwitching() {
+  wchar_t temppath[MAX_PATH] = {0};
+  ::GetTempPathW(MAX_PATH, temppath);
+
+  dogdouclix::FORWARDER_OPTIONS options;
+  options.TargetExecutable = L"cmd.exe";
+  options.ContextOptions.WorkingDirectory = temppath;
+  options.FullCommandLine = L"cmd.exe /c exit 0";
+
+  auto result = dogdouclix::Forwarder::Execute(options);
+  TEST_ASSERT(result.Succeeded, "Execution with working directory switch succeeded");
+  TEST_ASSERT(result.ExitCode == 0, "Exit code is 0");
+}
+
 static void TestEnvironmentIsolationAndMutation() {
-  // Set parent environment variable
   ::SetEnvironmentVariableW(L"DOGDOUCLIX_PARENT_SECRET", L"ParentValueShouldBeRedacted");
 
   dogdouclix::FORWARDER_OPTIONS options;
@@ -210,12 +222,10 @@ static void TestEnvironmentIsolationAndMutation() {
   TEST_ASSERT(result.Succeeded, "Execution with env mutation succeeded");
   TEST_ASSERT(result.ExitCode == 0, "Child verified parent secret was redacted and injected key was present");
 
-  // Verify parent process environment variable was NOT modified
   wchar_t parentval[64] = {0};
   DWORD getok = ::GetEnvironmentVariableW(L"DOGDOUCLIX_PARENT_SECRET", parentval, 64);
   TEST_ASSERT(getok > 0 && std::wstring(parentval) == L"ParentValueShouldBeRedacted", "Parent environment remained untouched");
 
-  // Clean up
   ::SetEnvironmentVariableW(L"DOGDOUCLIX_PARENT_SECRET", nullptr);
 }
 
@@ -227,6 +237,7 @@ int main() {
   TestCommandLineParsing();
   TestProcessExecutionAndExitCodes();
   TestPipedStreamPassThrough();
+  TestWorkingDirectorySwitching();
   TestEnvironmentIsolationAndMutation();
   std::cout << "=== All Tests Passed Successfully! ===\n";
   return 0;

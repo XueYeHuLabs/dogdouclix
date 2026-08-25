@@ -35,7 +35,6 @@ public:
     std::wstring& OutBasename
   );
 
-public:
   ~TargetResolver() = default;
   TargetResolver() = default;
 };

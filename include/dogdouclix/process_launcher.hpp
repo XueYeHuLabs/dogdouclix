@@ -20,7 +20,6 @@ public:
   // Launches target process with WinStation/Desktop inheritance and I/O handle pass-through
   static FORWARDING_RESULT LaunchAndForward(const LAUNCH_CONFIG& Config);
 
-public:
   ~ProcessLauncher() = default;
   ProcessLauncher() = default;
 };

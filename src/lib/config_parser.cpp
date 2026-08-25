@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <cctype>
+#include <algorithm>
 
 namespace dogdouclix {
 
@@ -85,21 +86,21 @@ static void SkipJsonValue(std::string_view Str, size_t& Pos) {
   if (Pos >= Str.size()) return;
   if (Str[Pos] == '"') {
     ParseJsonString(Str, Pos);
-  } else if (Str[Pos] == '{') {
+  } else if (Str[Pos] == '{' || Str[Pos] == '[') {
     ++Pos;
     int depth = 1;
     while (Pos < Str.size() && depth > 0) {
-      if (Str[Pos] == '{') ++depth;
-      else if (Str[Pos] == '}') --depth;
-      ++Pos;
-    }
-  } else if (Str[Pos] == '[') {
-    ++Pos;
-    int depth = 1;
-    while (Pos < Str.size() && depth > 0) {
-      if (Str[Pos] == '[') ++depth;
-      else if (Str[Pos] == ']') --depth;
-      ++Pos;
+      if (Str[Pos] == '"') {
+        ParseJsonString(Str, Pos);
+      } else if (Str[Pos] == '{' || Str[Pos] == '[') {
+        ++depth;
+        ++Pos;
+      } else if (Str[Pos] == '}' || Str[Pos] == ']') {
+        --depth;
+        ++Pos;
+      } else {
+        ++Pos;
+      }
     }
   } else {
     while (Pos < Str.size() && Str[Pos] != ',' && Str[Pos] != '}' && Str[Pos] != ']') {
@@ -255,6 +256,36 @@ std::optional<CLIX_COMPANION_CONFIG> ConfigParser::ParseJson(std::string_view Js
           } else if (*ukey == "load_profile") {
             auto uval = ParseJsonBool(JsonContent, pos);
             if (uval.has_value()) usercfg.LoadUserProfile = *uval;
+          } else if (*ukey == "logon_type" || *ukey == "logontype") {
+            auto uval = ParseJsonString(JsonContent, pos);
+            if (uval.has_value()) {
+              std::string lt = *uval;
+              std::transform(lt.begin(), lt.end(), lt.begin(), [](unsigned char C) {
+                return static_cast<char>(std::tolower(C));
+              });
+              if (lt == "interactive") usercfg.LogonType = LOGON32_LOGON_INTERACTIVE;
+              else if (lt == "batch") usercfg.LogonType = LOGON32_LOGON_BATCH;
+              else if (lt == "service") usercfg.LogonType = LOGON32_LOGON_SERVICE;
+              else if (lt == "network") usercfg.LogonType = LOGON32_LOGON_NETWORK;
+              else if (lt == "network_cleartext") usercfg.LogonType = LOGON32_LOGON_NETWORK_CLEARTEXT;
+              else if (lt == "new_credentials") usercfg.LogonType = LOGON32_LOGON_NEW_CREDENTIALS;
+              else {
+                try {
+                  usercfg.LogonType = static_cast<DWORD>(std::stoul(lt));
+                } catch (...) {}
+              }
+            } else {
+              SkipJsonWhitespace(JsonContent, pos);
+              size_t numstart = pos;
+              while (pos < JsonContent.size() && std::isdigit(static_cast<unsigned char>(JsonContent[pos]))) {
+                ++pos;
+              }
+              if (pos > numstart) {
+                try {
+                  usercfg.LogonType = static_cast<DWORD>(std::stoul(std::string(JsonContent.substr(numstart, pos - numstart))));
+                } catch (...) {}
+              }
+            }
           } else {
             SkipJsonValue(JsonContent, pos);
           }
@@ -338,6 +369,22 @@ std::optional<CLIX_COMPANION_CONFIG> ConfigParser::ParseIni(std::string_view Ini
         config.UserContext->Password = Utf8ToWide(val);
       } else if (key == "load_profile") {
         config.UserContext->LoadUserProfile = (val == "true" || val == "1" || val == "yes");
+      } else if (key == "logon_type" || key == "logontype") {
+        std::string lt = val;
+        std::transform(lt.begin(), lt.end(), lt.begin(), [](unsigned char C) {
+          return static_cast<char>(std::tolower(C));
+        });
+        if (lt == "interactive") config.UserContext->LogonType = LOGON32_LOGON_INTERACTIVE;
+        else if (lt == "batch") config.UserContext->LogonType = LOGON32_LOGON_BATCH;
+        else if (lt == "service") config.UserContext->LogonType = LOGON32_LOGON_SERVICE;
+        else if (lt == "network") config.UserContext->LogonType = LOGON32_LOGON_NETWORK;
+        else if (lt == "network_cleartext") config.UserContext->LogonType = LOGON32_LOGON_NETWORK_CLEARTEXT;
+        else if (lt == "new_credentials") config.UserContext->LogonType = LOGON32_LOGON_NEW_CREDENTIALS;
+        else {
+          try {
+            config.UserContext->LogonType = static_cast<DWORD>(std::stoul(val));
+          } catch (...) {}
+        }
       }
     }
   }

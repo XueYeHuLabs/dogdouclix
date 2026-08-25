@@ -3,6 +3,7 @@
 #include "dogdouclix/cred_manager.hpp"
 #include <shellapi.h>
 #include <iostream>
+#include <algorithm>
 
 namespace dogdouclix {
 
@@ -105,6 +106,7 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
   }
 
   // 1. Check for transparent shim mode
+  FORWARDER_OPTIONS options;
   auto resolved = TargetResolver::Resolve(CustomSelfExe);
   if (resolved.has_value() && resolved->IsTransparentShim) {
     if (resolved->TargetExecutable.empty()) {
@@ -112,31 +114,22 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
       return std::nullopt;
     }
 
-    FORWARDER_OPTIONS shimopts;
-    shimopts.IsTransparentMode = true;
-    shimopts.TargetExecutable = resolved->TargetExecutable;
+    options.IsTransparentMode = true;
+    options.TargetExecutable = resolved->TargetExecutable;
 
     if (resolved->LoadedConfig.has_value()) {
-      shimopts.ContextOptions.EnvMutations = resolved->LoadedConfig->EnvMutations;
-      shimopts.ContextOptions.WorkingDirectory = resolved->LoadedConfig->WorkingDirectory;
-      shimopts.ContextOptions.DesktopStation = resolved->LoadedConfig->DesktopStation;
-      shimopts.ContextOptions.UserContext = resolved->LoadedConfig->UserContext;
+      options.ContextOptions.EnvMutations = resolved->LoadedConfig->EnvMutations;
+      options.ContextOptions.WorkingDirectory = resolved->LoadedConfig->WorkingDirectory;
+      options.ContextOptions.DesktopStation = resolved->LoadedConfig->DesktopStation;
+      options.ContextOptions.UserContext = resolved->LoadedConfig->UserContext;
     }
-
-    const wchar_t* rawcursor = RawCommandLine;
-    rawcursor = SkipOneToken(rawcursor);
-    const wchar_t* rawtail = SkipWhitespace(rawcursor);
-
-    shimopts.FullCommandLine = BuildTargetCommandLine(shimopts.TargetExecutable, rawtail);
-    return shimopts;
+  } else {
+    // Explicit Forwarder Mode requires at least 2 arguments (dogdouclix <target.exe>)
+    if (Argc < 2) {
+      return std::nullopt;
+    }
   }
 
-  // 2. Explicit Forwarder Mode
-  if (Argc < 2) {
-    return std::nullopt;
-  }
-
-  FORWARDER_OPTIONS options;
   int targetargindex = 1;
   const wchar_t* rawcursor = RawCommandLine;
 
@@ -159,6 +152,7 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
                  << L"  --clix-user <USER>         Execute target under specified username\n"
                  << L"  --clix-domain <DOMAIN>     Domain for user credentials\n"
                  << L"  --clix-password <PWD>      Password for user credentials\n"
+                 << L"  --clix-logon-type <TYPE>   Logon type (interactive/batch/service/network/new_credentials)\n"
                  << L"  --clix-load-profile        Load user profile when switching user\n"
                  << L"  --                         Stop option processing; next token is target executable\n\n"
                  << L"Credential Management Commands:\n"
@@ -316,6 +310,26 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
       targetargindex += 2;
       rawcursor = SkipOneToken(rawcursor);
       rawcursor = SkipOneToken(rawcursor);
+    } else if (arg == L"--clix-logon-type" && targetargindex + 1 < Argc) {
+      if (!options.ContextOptions.UserContext.has_value()) {
+        options.ContextOptions.UserContext = USER_CONTEXT_CONFIG{};
+      }
+      std::wstring ltstr = Argv[targetargindex + 1];
+      std::transform(ltstr.begin(), ltstr.end(), ltstr.begin(), ::towlower);
+      if (ltstr == L"interactive") options.ContextOptions.UserContext->LogonType = LOGON32_LOGON_INTERACTIVE;
+      else if (ltstr == L"batch") options.ContextOptions.UserContext->LogonType = LOGON32_LOGON_BATCH;
+      else if (ltstr == L"service") options.ContextOptions.UserContext->LogonType = LOGON32_LOGON_SERVICE;
+      else if (ltstr == L"network") options.ContextOptions.UserContext->LogonType = LOGON32_LOGON_NETWORK;
+      else if (ltstr == L"network_cleartext") options.ContextOptions.UserContext->LogonType = LOGON32_LOGON_NETWORK_CLEARTEXT;
+      else if (ltstr == L"new_credentials") options.ContextOptions.UserContext->LogonType = LOGON32_LOGON_NEW_CREDENTIALS;
+      else {
+        try {
+          options.ContextOptions.UserContext->LogonType = static_cast<DWORD>(std::stoul(ltstr));
+        } catch (...) {}
+      }
+      targetargindex += 2;
+      rawcursor = SkipOneToken(rawcursor);
+      rawcursor = SkipOneToken(rawcursor);
     } else if (arg == L"--clix-load-profile") {
       if (!options.ContextOptions.UserContext.has_value()) {
         options.ContextOptions.UserContext = USER_CONTEXT_CONFIG{};
@@ -330,6 +344,12 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
     } else {
       break;
     }
+  }
+
+  if (options.IsTransparentMode) {
+    rawcursor = SkipWhitespace(rawcursor);
+    options.FullCommandLine = BuildTargetCommandLine(options.TargetExecutable, rawcursor);
+    return options;
   }
 
   if (targetargindex < Argc) {

@@ -29,7 +29,6 @@ public:
   // Resolves profile references and merges profile secrets into configuration
   static void ResolveAndApplyProfile(CLIX_COMPANION_CONFIG& Config);
 
-public:
   ~ConfigParser() = default;
   ConfigParser() = default;
 };

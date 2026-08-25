@@ -11,28 +11,42 @@ static bool FileExists(const std::wstring& Path) {
 }
 
 static std::wstring NormalizePath(const std::wstring& Path) {
-  wchar_t buffer[MAX_PATH] = {0};
-  DWORD len = ::GetFullPathNameW(Path.c_str(), MAX_PATH, buffer, nullptr);
-  if (len > 0 && len < MAX_PATH) {
-    std::wstring result(buffer, len);
-    std::transform(result.begin(), result.end(), result.begin(), ::towlower);
-    while (!result.empty() && (result.back() == L'\\' || result.back() == L'/')) {
-      result.pop_back();
+  DWORD needed = ::GetFullPathNameW(Path.c_str(), 0, nullptr, nullptr);
+  if (needed > 0) {
+    std::wstring result(needed, L'\0');
+    DWORD len = ::GetFullPathNameW(Path.c_str(), needed, result.data(), nullptr);
+    if (len > 0 && len < needed) {
+      result.resize(len);
+      std::transform(result.begin(), result.end(), result.begin(), ::towlower);
+      while (!result.empty() && (result.back() == L'\\' || result.back() == L'/')) {
+        result.pop_back();
+      }
+      return result;
     }
-    return result;
   }
   std::wstring lower = Path;
   std::transform(lower.begin(), lower.end(), lower.begin(), ::towlower);
+  while (!lower.empty() && (lower.back() == L'\\' || lower.back() == L'/')) {
+    lower.pop_back();
+  }
   return lower;
 }
 
 } // namespace
 
 std::wstring TargetResolver::GetCurrentExecutablePath() {
-  wchar_t buffer[MAX_PATH] = {0};
-  DWORD len = ::GetModuleFileNameW(nullptr, buffer, MAX_PATH);
-  if (len > 0) {
-    return std::wstring(buffer, len);
+  DWORD capacity = 1024;
+  while (capacity <= 32768) {
+    std::wstring buffer(capacity, L'\0');
+    DWORD len = ::GetModuleFileNameW(nullptr, buffer.data(), capacity);
+    if (len == 0) {
+      break;
+    }
+    if (len < capacity) {
+      buffer.resize(len);
+      return buffer;
+    }
+    capacity *= 2;
   }
   return std::wstring();
 }
@@ -172,12 +186,16 @@ std::optional<TARGET_RESOLUTION> TargetResolver::Resolve(const std::wstring& Cus
   }
 
   // 2. Target from DOGDOUCLIX_TARGET environment variable
-  wchar_t envbuf[MAX_PATH] = {0};
-  DWORD envlen = ::GetEnvironmentVariableW(L"DOGDOUCLIX_TARGET", envbuf, MAX_PATH);
+  DWORD envlen = ::GetEnvironmentVariableW(L"DOGDOUCLIX_TARGET", nullptr, 0);
   if (envlen > 0) {
-    res.TargetExecutable = std::wstring(envbuf, envlen);
-    res.IsTransparentShim = true;
-    return res;
+    std::wstring envbuf(envlen, L'\0');
+    DWORD actuallen = ::GetEnvironmentVariableW(L"DOGDOUCLIX_TARGET", envbuf.data(), envlen);
+    if (actuallen > 0 && actuallen < envlen) {
+      envbuf.resize(actuallen);
+      res.TargetExecutable = envbuf;
+      res.IsTransparentShim = true;
+      return res;
+    }
   }
 
   // 3. Target from PATH penetration

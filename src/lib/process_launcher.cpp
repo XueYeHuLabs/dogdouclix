@@ -1,10 +1,11 @@
 #include "dogdouclix/process_launcher.hpp"
+#include <atomic>
 
 namespace dogdouclix {
 
 namespace {
 
-static HANDLE _ChildProcessHandle = nullptr;
+static std::atomic<HANDLE> _ChildProcessHandle{nullptr};
 
 static BOOL WINAPI ConsoleCtrlHandler(DWORD CtrlType) {
   switch (CtrlType) {
@@ -37,23 +38,27 @@ FORWARDING_RESULT ProcessLauncher::LaunchAndForward(const LAUNCH_CONFIG& Config)
   HANDLE hstderr = ::GetStdHandle(STD_ERROR_HANDLE);
 
   std::vector<HANDLE> inheritablehandles;
-  auto markinheritable = [&inheritablehandles](HANDLE Handle) {
-    if (Handle != nullptr && Handle != INVALID_HANDLE_VALUE) {
-      ::SetHandleInformation(Handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
-      inheritablehandles.push_back(Handle);
-    }
-  };
+  if (Config.DirectHandleInheritance) {
+    auto markinheritable = [&inheritablehandles](HANDLE Handle) {
+      if (Handle != nullptr && Handle != INVALID_HANDLE_VALUE) {
+        ::SetHandleInformation(Handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
+        inheritablehandles.push_back(Handle);
+      }
+    };
 
-  markinheritable(hstdin);
-  markinheritable(hstdout);
-  markinheritable(hstderr);
+    markinheritable(hstdin);
+    markinheritable(hstdout);
+    markinheritable(hstderr);
+  }
 
   STARTUPINFOEXW siex{};
   siex.StartupInfo.cb = sizeof(STARTUPINFOEXW);
-  siex.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
-  siex.StartupInfo.hStdInput = hstdin;
-  siex.StartupInfo.hStdOutput = hstdout;
-  siex.StartupInfo.hStdError = hstderr;
+  if (Config.DirectHandleInheritance) {
+    siex.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
+    siex.StartupInfo.hStdInput = hstdin;
+    siex.StartupInfo.hStdOutput = hstdout;
+    siex.StartupInfo.hStdError = hstderr;
+  }
 
   std::wstring desktopstr;
   if (Config.DesktopStation.has_value()) {
@@ -99,6 +104,7 @@ FORWARDING_RESULT ProcessLauncher::LaunchAndForward(const LAUNCH_CONFIG& Config)
   DWORD creationflags = CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT;
   PROCESS_INFORMATION pi{};
 
+  BOOL inherithandles = Config.DirectHandleInheritance ? TRUE : FALSE;
   BOOL created = FALSE;
   if (Config.UserToken != nullptr) {
     created = ::CreateProcessAsUserW(
@@ -107,7 +113,7 @@ FORWARDING_RESULT ProcessLauncher::LaunchAndForward(const LAUNCH_CONFIG& Config)
       cmdlinebuffer.data(),
       nullptr,
       nullptr,
-      TRUE,
+      inherithandles,
       creationflags,
       envblock,
       workdir,
@@ -120,7 +126,7 @@ FORWARDING_RESULT ProcessLauncher::LaunchAndForward(const LAUNCH_CONFIG& Config)
       cmdlinebuffer.data(),
       nullptr,
       nullptr,
-      TRUE,
+      inherithandles,
       creationflags,
       envblock,
       workdir,
@@ -139,7 +145,7 @@ FORWARDING_RESULT ProcessLauncher::LaunchAndForward(const LAUNCH_CONFIG& Config)
     return result;
   }
 
-  _ChildProcessHandle = pi.hProcess;
+  _ChildProcessHandle.store(pi.hProcess, std::memory_order_release);
   ::SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE);
 
   ::WaitForSingleObject(pi.hProcess, INFINITE);
@@ -155,7 +161,7 @@ FORWARDING_RESULT ProcessLauncher::LaunchAndForward(const LAUNCH_CONFIG& Config)
   }
 
   ::SetConsoleCtrlHandler(ConsoleCtrlHandler, FALSE);
-  _ChildProcessHandle = nullptr;
+  _ChildProcessHandle.store(nullptr, std::memory_order_release);
 
   ::CloseHandle(pi.hThread);
   ::CloseHandle(pi.hProcess);

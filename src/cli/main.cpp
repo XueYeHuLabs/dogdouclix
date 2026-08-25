@@ -1,5 +1,6 @@
 #include "dogdouclix/forwarder.hpp"
 #include <iostream>
+#include <cstring>
 
 int wmain(int Argc, wchar_t* Argv[]) {
   const wchar_t* rawcommandline = ::GetCommandLineW();
@@ -19,5 +20,8 @@ int wmain(int Argc, wchar_t* Argv[]) {
     std::cerr << "dogdouclix error: " << result.ErrorMessage << "\n";
   }
 
-  return static_cast<int>(result.ExitCode);
+  int exitcode = 0;
+  static_assert(sizeof(DWORD) == sizeof(int), "size mismatch");
+  std::memcpy(&exitcode, &result.ExitCode, sizeof(int));
+  return exitcode;
 }

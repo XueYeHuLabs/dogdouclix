@@ -5,7 +5,7 @@ namespace dogdouclix {
 namespace {
 
 constexpr const wchar_t* ProfilePrefix = L"dogdouclix:profile:";
-constexpr size_t ProfilePrefixLen = 19; // wcslen(L"dogdouclix:profile:")
+constexpr size_t ProfilePrefixLen = std::char_traits<wchar_t>::length(ProfilePrefix);
 
 } // namespace
 
@@ -47,7 +47,12 @@ bool CredManager::SaveProfile(
   cred.Persist = CRED_PERSIST_LOCAL_MACHINE;
   cred.UserName = usernamefull.empty() ? nullptr : const_cast<LPWSTR>(usernamefull.c_str());
 
-  if (!::CredWriteW(&cred, 0)) {
+  BOOL writeok = ::CredWriteW(&cred, 0);
+  if (!passwordutf8.empty()) {
+    ::SecureZeroMemory(passwordutf8.data(), passwordutf8.size());
+  }
+
+  if (!writeok) {
     DWORD err = ::GetLastError();
     if (OutError != nullptr) {
       *OutError = "CredWriteW failed: " + GetLastErrorMessage(err);
@@ -97,6 +102,7 @@ std::optional<CRED_PROFILE> CredManager::GetProfile(
   if (cred->CredentialBlob != nullptr && cred->CredentialBlobSize > 0) {
     std::string passraw(reinterpret_cast<const char*>(cred->CredentialBlob), cred->CredentialBlobSize);
     profile.Password = Utf8ToWide(passraw);
+    ::SecureZeroMemory(passraw.data(), passraw.size());
   }
 
   ::CredFree(cred);

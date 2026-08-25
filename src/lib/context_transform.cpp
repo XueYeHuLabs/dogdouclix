@@ -89,7 +89,7 @@ bool AcquireUserToken(
     HANDLE duptoken = nullptr;
     if (::DuplicateTokenEx(
         UserConfig.ExistingToken,
-        MAXIMUM_ALLOWED,
+        TOKEN_QUERY | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY,
         nullptr,
         SecurityImpersonation,
         TokenPrimary,
@@ -107,13 +107,14 @@ bool AcquireUserToken(
     LPCWSTR user = UserConfig.Username->c_str();
     LPCWSTR domain = UserConfig.Domain.has_value() ? UserConfig.Domain->c_str() : nullptr;
     LPCWSTR pass = UserConfig.Password.has_value() ? UserConfig.Password->c_str() : L"";
+    DWORD logontype = UserConfig.LogonType.value_or(LOGON32_LOGON_INTERACTIVE);
 
     HANDLE logontoken = nullptr;
     BOOL logonok = ::LogonUserW(
       user,
       domain,
       pass,
-      LOGON32_LOGON_INTERACTIVE,
+      logontype,
       LOGON32_PROVIDER_DEFAULT,
       &logontoken
     );

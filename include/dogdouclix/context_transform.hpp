@@ -19,6 +19,7 @@ typedef struct _USER_CONTEXT_CONFIG {
   std::optional<std::wstring> Username;
   std::optional<std::wstring> Domain;
   std::optional<std::wstring> Password;
+  std::optional<DWORD> LogonType;
   HANDLE ExistingToken{nullptr};
   bool LoadUserProfile{false};
 } USER_CONTEXT_CONFIG;

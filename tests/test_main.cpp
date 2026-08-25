@@ -431,16 +431,73 @@ static void TestEnvironmentIsolationAndMutation() {
   ::SetEnvironmentVariableW(L"DOGDOUCLIX_PARENT_SECRET", nullptr);
 }
 
+static void TestJsonNestedStringBrackets() {
+  std::string json = R"({
+    "unknown_object": {
+      "nested_key": "{nested_bracket_string}",
+      "another_key": "[nested_array_string]"
+    },
+    "target": "C:\\Tools\\app.exe",
+    "user": {
+      "username": "TestUser",
+      "logon_type": "batch"
+    }
+  })";
+
+  auto cfg = dogdouclix::ConfigParser::ParseJson(json);
+  TEST_ASSERT(cfg.has_value(), "JSON parse with nested string brackets succeeded");
+  TEST_ASSERT(cfg->Target.has_value() && *cfg->Target == L"C:\\Tools\\app.exe", "Target parsed after nested brackets skipped");
+  TEST_ASSERT(cfg->UserContext.has_value() && cfg->UserContext->Username == L"TestUser", "UserContext parsed after nested brackets");
+  TEST_ASSERT(cfg->UserContext->LogonType.has_value() && *cfg->UserContext->LogonType == LOGON32_LOGON_BATCH, "LogonType batch parsed correctly");
+}
+
+static void TestTransparentShimCliOverride() {
+  wchar_t temppath[MAX_PATH] = {0};
+  ::GetTempPathW(MAX_PATH, temppath);
+
+  std::wstring dummyexe = std::wstring(temppath) + L"shim_cli_test.exe";
+  std::wstring dummycfg = std::wstring(temppath) + L"shim_cli_test.clix.json";
+
+  std::ofstream outcfg(dummycfg, std::ios::binary);
+  outcfg << R"({
+    "target": "cmd.exe",
+    "env_set": {
+      "DEFAULT_FLAG": "InitVal"
+    }
+  })";
+  outcfg.close();
+
+  const wchar_t* rawcmd = L"shim_cli_test.exe --clix-env-set OVERRIDE_FLAG=InjectedViaCli /c exit 0";
+  wchar_t a0[] = L"shim_cli_test.exe";
+  wchar_t a1[] = L"--clix-env-set";
+  wchar_t a2[] = L"OVERRIDE_FLAG=InjectedViaCli";
+  wchar_t a3[] = L"/c";
+  wchar_t a4[] = L"exit";
+  wchar_t a5[] = L"0";
+  wchar_t* argv[] = { a0, a1, a2, a3, a4, a5 };
+
+  auto options = dogdouclix::Forwarder::ParseCommandLine(6, argv, rawcmd, dummyexe);
+  TEST_ASSERT(options.has_value(), "ParseCommandLine transparent mode with CLI override succeeded");
+  TEST_ASSERT(options->IsTransparentMode, "IsTransparentMode is true");
+  TEST_ASSERT(options->TargetExecutable == L"cmd.exe", "Target executable is cmd.exe");
+  TEST_ASSERT(options->ContextOptions.EnvMutations.size() == 2, "2 env mutations loaded (1 from config, 1 from CLI)");
+  TEST_ASSERT(options->FullCommandLine.find(L"/c exit 0") != std::wstring::npos, "Child command line contains tail args");
+
+  ::DeleteFileW(dummycfg.c_str());
+}
+
 int main() {
   std::cout << "=== Running DogdouClix Core Test Suite ===\n";
   TestStringConversions();
   TestArgumentQuoting();
   TestConfigParserJson();
   TestConfigParserIni();
+  TestJsonNestedStringBrackets();
   TestTargetResolverSplitPath();
   TestTargetResolverPathPenetration();
   TestTargetResolverCompanionConfig();
   TestForwarderTransparentShimMode();
+  TestTransparentShimCliOverride();
   TestCredManagerCrud();
   TestProfileConfigIntegration();
   TestEnvironmentBlockMutations();

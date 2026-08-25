@@ -17,13 +17,15 @@
 #include <memory>
 #include <optional>
 #include <cstdint>
+#include <cstdio>
 #include <iostream>
 
 #if defined(_DEBUG) || defined(DBG)
 #define ASSERTF(exp, ...) \
   do { \
     if (!(exp)) { \
-      std::cerr << "[ASSERTION FAILED] " << #exp << " at " << __FILE__ << ":" << __LINE__ << "\n"; \
+      std::fprintf(stderr, "[ASSERTION FAILED] %s at %s:%d\n", #exp, __FILE__, __LINE__); \
+      __VA_OPT__(std::fprintf(stderr, "  Message: " __VA_ARGS__); std::fprintf(stderr, "\n");) \
       ::DebugBreak(); \
     } \
   } while (0)

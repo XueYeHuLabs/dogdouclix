@@ -41,7 +41,6 @@ public:
   // Formats canonical target name for Windows Credential Manager
   static std::wstring FormatTargetName(const std::wstring& ProfileName);
 
-public:
   ~CredManager() = default;
   CredManager() = default;
 };

@@ -30,6 +30,9 @@ public:
     std::wstring_view TailArgs
   );
 
+  // Quotes a single argument according to standard Windows CommandLineToArgvW rules
+  static std::wstring QuoteArgument(std::wstring_view Arg);
+
 public:
   ~Forwarder() = default;
   Forwarder() = default;

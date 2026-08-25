@@ -25,23 +25,18 @@ static void TestStringConversions() {
 }
 
 static void TestArgumentQuoting() {
-  // 1. Simple argument without spaces
   std::wstring simple = dogdouclix::Forwarder::QuoteArgument(L"hello");
   TEST_ASSERT(simple == L"hello", "Simple arg not quoted");
 
-  // 2. Argument with spaces
   std::wstring withspaces = dogdouclix::Forwarder::QuoteArgument(L"hello world");
   TEST_ASSERT(withspaces == L"\"hello world\"", "Arg with spaces quoted");
 
-  // 3. Argument with quotes
   std::wstring withquotes = dogdouclix::Forwarder::QuoteArgument(L"foo\"bar");
   TEST_ASSERT(withquotes == L"\"foo\\\"bar\"", "Quotes escaped with backslash");
 
-  // 4. Argument with spaces and trailing backslashes
   std::wstring trailingbs = dogdouclix::Forwarder::QuoteArgument(L"C:\\Program Files\\");
   TEST_ASSERT(trailingbs == L"\"C:\\Program Files\\\\\"", "Trailing backslashes doubled in quoted arg");
 
-  // 5. Comprehensive roundtrip verification against Windows CommandLineToArgvW
   std::vector<std::wstring> testinputs = {
     L"",
     L"simple",
@@ -106,7 +101,6 @@ static void TestCommandLineParsing() {
   TEST_ASSERT(options->ContextOptions.EnvMutations[0].Value == L"BAR", "Env value is BAR");
   TEST_ASSERT(options->FullCommandLine.find(L"\"world with spaces\"") != std::wstring::npos, "Quotes preserved in full command line");
 
-  // Test with explicit -- delimiter
   const wchar_t* rawcmddash = L"dogdouclix.exe --clix-cwd L:\\temp -- git.exe log -n 5";
   wchar_t d0[] = L"dogdouclix.exe";
   wchar_t d1[] = L"--clix-cwd";
@@ -125,14 +119,56 @@ static void TestCommandLineParsing() {
   TEST_ASSERT(dashoptions->FullCommandLine == L"git.exe log -n 5", "Full command line matches tail arguments");
 }
 
-static void TestProcessExecutionSmoke() {
+static void TestProcessExecutionAndExitCodes() {
+  std::vector<DWORD> testcodes = { 0, 1, 42, 100, 255 };
+  for (DWORD code : testcodes) {
+    dogdouclix::FORWARDER_OPTIONS options;
+    options.TargetExecutable = L"cmd.exe";
+    options.FullCommandLine = L"cmd.exe /c exit " + std::to_wstring(code);
+
+    auto result = dogdouclix::Forwarder::Execute(options);
+    TEST_ASSERT(result.Succeeded, "Process execution succeeded for exit code test");
+    TEST_ASSERT(result.ExitCode == code, "Exit code accurately propagated (" + std::to_string(code) + ")");
+  }
+}
+
+static void TestPipedStreamPassThrough() {
+  // Create an anonymous pipe to capture child process stdout
+  HANDLE hreadpipe = nullptr;
+  HANDLE hwritepipe = nullptr;
+  SECURITY_ATTRIBUTES sa{};
+  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  sa.bInheritHandle = TRUE;
+  sa.lpSecurityDescriptor = nullptr;
+
+  BOOL pipecreated = ::CreatePipe(&hreadpipe, &hwritepipe, &sa, 0);
+  TEST_ASSERT(pipecreated, "Anonymous pipe created successfully");
+
+  HANDLE holdstdout = ::GetStdHandle(STD_OUTPUT_HANDLE);
+  ::SetStdHandle(STD_OUTPUT_HANDLE, hwritepipe);
+
   dogdouclix::FORWARDER_OPTIONS options;
   options.TargetExecutable = L"cmd.exe";
-  options.FullCommandLine = L"cmd.exe /c exit 42";
+  options.FullCommandLine = L"cmd.exe /c echo PipedOutputVerificationString";
 
   auto result = dogdouclix::Forwarder::Execute(options);
-  TEST_ASSERT(result.Succeeded, "Process execution succeeded");
-  TEST_ASSERT(result.ExitCode == 42, "Process exit code accurately forwarded (42)");
+
+  // Restore original stdout
+  ::SetStdHandle(STD_OUTPUT_HANDLE, holdstdout);
+  ::CloseHandle(hwritepipe);
+
+  TEST_ASSERT(result.Succeeded, "Forwarder execution with piped stdout succeeded");
+  TEST_ASSERT(result.ExitCode == 0, "Exit code is 0");
+
+  // Read captured output from the read end of the pipe
+  char readbuffer[256] = {0};
+  DWORD bytesread = 0;
+  BOOL readok = ::ReadFile(hreadpipe, readbuffer, sizeof(readbuffer) - 1, &bytesread, nullptr);
+  ::CloseHandle(hreadpipe);
+
+  TEST_ASSERT(readok, "ReadFile from anonymous pipe succeeded");
+  std::string captured(readbuffer, bytesread);
+  TEST_ASSERT(captured.find("PipedOutputVerificationString") != std::string::npos, "Piped stream captured expected child output");
 }
 
 int main() {
@@ -141,7 +177,8 @@ int main() {
   TestArgumentQuoting();
   TestEnvironmentBlockMutations();
   TestCommandLineParsing();
-  TestProcessExecutionSmoke();
+  TestProcessExecutionAndExitCodes();
+  TestPipedStreamPassThrough();
   std::cout << "=== All Tests Passed Successfully! ===\n";
   return 0;
 }

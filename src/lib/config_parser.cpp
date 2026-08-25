@@ -419,4 +419,93 @@ std::optional<CLIX_COMPANION_CONFIG> ConfigParser::ParseFile(const std::wstring&
   return parsed;
 }
 
+std::string ConfigParser::GenerateTemplateJson() {
+  return "{\n"
+         "  \"$schema\": \"https://raw.githubusercontent.com/XueYeHuLabs/dogdouclix/main/schemas/clix.schema.json\",\n"
+         "  \"target\": \"C:\\\\Windows\\\\System32\\\\notepad.exe\",\n"
+         "  \"cwd\": \"C:\\\\\",\n"
+         "  \"desktop\": \"winsta0\\\\default\",\n"
+         "  \"user\": {\n"
+         "    \"profile\": \"DeployAdmin\",\n"
+         "    \"username\": \"TargetUser\",\n"
+         "    \"domain\": \"\",\n"
+         "    \"password\": \"\",\n"
+         "    \"logon_type\": \"interactive\",\n"
+         "    \"load_profile\": true\n"
+         "  },\n"
+         "  \"env_set\": {\n"
+         "    \"CUSTOM_ENV_KEY\": \"SampleValue\"\n"
+         "  },\n"
+         "  \"env_remove\": [\n"
+         "    \"AWS_SECRET_ACCESS_KEY\",\n"
+         "    \"CALLER_PRIVATE_TOKEN\"\n"
+         "  ]\n"
+         "}\n";
+}
+
+std::string ConfigParser::GenerateTemplateIni() {
+  return "; DogdouClix Companion Configuration Template (.clix.ini)\n"
+         "\n"
+         "[target]\n"
+         "executable = C:\\Windows\\System32\\notepad.exe\n"
+         "cwd = C:\\\n"
+         "desktop = winsta0\\default\n"
+         "\n"
+         "[user]\n"
+         "profile = DeployAdmin\n"
+         "username = TargetUser\n"
+         "domain = \n"
+         "password = \n"
+         "logon_type = interactive\n"
+         "load_profile = true\n"
+         "\n"
+         "[env.set]\n"
+         "CUSTOM_ENV_KEY = SampleValue\n"
+         "\n"
+         "[env.remove]\n"
+         "AWS_SECRET_ACCESS_KEY = 1\n"
+         "CALLER_PRIVATE_TOKEN = 1\n";
+}
+
+bool ConfigParser::WriteTemplateFile(
+  const std::wstring& FilePath,
+  std::string_view Format,
+  std::string* ErrorMessage
+) {
+  std::string content;
+  std::string formatlower(Format);
+  std::transform(formatlower.begin(), formatlower.end(), formatlower.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+
+  if (formatlower == "json") {
+    content = GenerateTemplateJson();
+  } else if (formatlower == "ini") {
+    content = GenerateTemplateIni();
+  } else {
+    if (ErrorMessage != nullptr) {
+      *ErrorMessage = "Unsupported configuration format: '" + std::string(Format) + "'. Supported formats are 'json' and 'ini'.";
+    }
+    return false;
+  }
+
+  std::ofstream out(FilePath, std::ios::binary | std::ios::trunc);
+  if (!out.is_open()) {
+    if (ErrorMessage != nullptr) {
+      *ErrorMessage = "Failed to create or open file for writing: " + WideToUtf8(FilePath);
+    }
+    return false;
+  }
+
+  out.write(content.data(), static_cast<std::streamsize>(content.size()));
+  if (!out.good()) {
+    if (ErrorMessage != nullptr) {
+      *ErrorMessage = "Failed to write content to file: " + WideToUtf8(FilePath);
+    }
+    return false;
+  }
+
+  return true;
+}
+
 } // namespace dogdouclix

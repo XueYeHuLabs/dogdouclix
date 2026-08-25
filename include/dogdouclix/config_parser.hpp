@@ -29,6 +29,20 @@ public:
   // Resolves profile references and merges profile secrets into configuration
   static void ResolveAndApplyProfile(CLIX_COMPANION_CONFIG& Config);
 
+  // Generates a standard JSON companion configuration template
+  static std::string GenerateTemplateJson();
+
+  // Generates a standard INI companion configuration template
+  static std::string GenerateTemplateIni();
+
+  // Writes a generated template (JSON or INI) to the specified file path
+  static bool WriteTemplateFile(
+    const std::wstring& FilePath,
+    std::string_view Format,
+    std::string* ErrorMessage = nullptr
+  );
+
+public:
   ~ConfigParser() = default;
   ConfigParser() = default;
 };

@@ -155,11 +155,70 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
                  << L"  --clix-logon-type <TYPE>   Logon type (interactive/batch/service/network/new_credentials)\n"
                  << L"  --clix-load-profile        Load user profile when switching user\n"
                  << L"  --                         Stop option processing; next token is target executable\n\n"
+                 << L"Scaffolding Commands:\n"
+                 << L"  --clix-init <json|ini> [path]   Generate template configuration file (default: clix.json / clix.ini)\n"
+                 << L"  --clix-template <json|ini>      Print configuration template directly to stdout\n\n"
                  << L"Credential Management Commands:\n"
                  << L"  --clix-profile-set <NAME> [opts]   Save/update OS credentials in Credential Manager\n"
                  << L"  --clix-profile-get <NAME>          Display credential metadata from Credential Manager\n"
                  << L"  --clix-profile-delete <NAME>       Delete credential profile from Credential Manager\n"
                  << L"  --clix-profile-list                List all registered credential profiles\n";
+      return std::nullopt;
+    } else if (arg == L"--clix-template" && targetargindex + 1 < Argc) {
+      std::wstring formatarg = Argv[targetargindex + 1];
+      std::string formatutf8 = WideToUtf8(formatarg);
+      std::string formatlower = formatutf8;
+      std::transform(formatlower.begin(), formatlower.end(), formatlower.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+      });
+      if (formatlower == "json") {
+        std::cout << ConfigParser::GenerateTemplateJson();
+      } else if (formatlower == "ini") {
+        std::cout << ConfigParser::GenerateTemplateIni();
+      } else {
+        std::wcerr << L"dogdouclix error: Unsupported template format '" << formatarg << L"'. Supported formats: 'json', 'ini'.\n";
+      }
+      return std::nullopt;
+    } else if (arg == L"--clix-template") {
+      std::wcerr << L"dogdouclix error: Missing template format for --clix-template. Usage: --clix-template <json|ini>\n";
+      return std::nullopt;
+    } else if (arg == L"--clix-init" && targetargindex + 1 < Argc) {
+      std::wstring formatarg = Argv[targetargindex + 1];
+      std::string formatutf8 = WideToUtf8(formatarg);
+      std::string formatlower = formatutf8;
+      std::transform(formatlower.begin(), formatlower.end(), formatlower.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+      });
+
+      if (formatlower != "json" && formatlower != "ini") {
+        std::wcerr << L"dogdouclix error: Unsupported template format '" << formatarg << L"'. Supported formats: 'json', 'ini'.\n";
+        return std::nullopt;
+      }
+
+      std::wstring outpath;
+      if (targetargindex + 2 < Argc && !std::wstring_view(Argv[targetargindex + 2]).starts_with(L"--")) {
+        outpath = Argv[targetargindex + 2];
+      } else {
+        outpath = (formatlower == "json") ? L"clix.json" : L"clix.ini";
+      }
+
+      if (outpath == L"-" || outpath == L"stdout") {
+        if (formatlower == "json") {
+          std::cout << ConfigParser::GenerateTemplateJson();
+        } else {
+          std::cout << ConfigParser::GenerateTemplateIni();
+        }
+      } else {
+        std::string err;
+        if (ConfigParser::WriteTemplateFile(outpath, formatlower, &err)) {
+          std::wcout << L"dogdouclix: Successfully generated template configuration at '" << outpath << L"'.\n";
+        } else {
+          std::wcerr << L"dogdouclix error: " << Utf8ToWide(err) << L"\n";
+        }
+      }
+      return std::nullopt;
+    } else if (arg == L"--clix-init") {
+      std::wcerr << L"dogdouclix error: Missing template format for --clix-init. Usage: --clix-init <json|ini> [path]\n";
       return std::nullopt;
     } else if (arg == L"--clix-profile-list") {
       std::string err;

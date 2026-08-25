@@ -486,6 +486,114 @@ static void TestTransparentShimCliOverride() {
   ::DeleteFileW(dummycfg.c_str());
 }
 
+static void TestTemplateGeneration() {
+  std::string json = dogdouclix::ConfigParser::GenerateTemplateJson();
+  TEST_ASSERT(!json.empty(), "GenerateTemplateJson produces non-empty string");
+  TEST_ASSERT(json.find("$schema") != std::string::npos, "Template JSON includes $schema");
+
+  auto parsedjson = dogdouclix::ConfigParser::ParseJson(json);
+  TEST_ASSERT(parsedjson.has_value(), "Template JSON parses cleanly");
+  TEST_ASSERT(parsedjson->Target.has_value() && parsedjson->Target == L"C:\\Windows\\System32\\notepad.exe", "Template JSON target is notepad.exe");
+  TEST_ASSERT(parsedjson->WorkingDirectory.has_value() && parsedjson->WorkingDirectory == L"C:\\", "Template JSON CWD is C:\\");
+  TEST_ASSERT(parsedjson->DesktopStation.has_value() && parsedjson->DesktopStation == L"winsta0\\default", "Template JSON desktop is winsta0\\default");
+  TEST_ASSERT(parsedjson->Profile.has_value() && parsedjson->Profile == L"DeployAdmin", "Template JSON profile is DeployAdmin");
+  TEST_ASSERT(parsedjson->UserContext.has_value() && parsedjson->UserContext->Username == L"TargetUser", "Template JSON username is TargetUser");
+  TEST_ASSERT(parsedjson->EnvMutations.size() == 3, "Template JSON contains 3 env mutations (1 set, 2 remove)");
+
+  std::string ini = dogdouclix::ConfigParser::GenerateTemplateIni();
+  TEST_ASSERT(!ini.empty(), "GenerateTemplateIni produces non-empty string");
+  TEST_ASSERT(ini.find("[target]") != std::string::npos, "Template INI includes [target] section");
+
+  auto parsedini = dogdouclix::ConfigParser::ParseIni(ini);
+  TEST_ASSERT(parsedini.has_value(), "Template INI parses cleanly");
+  TEST_ASSERT(parsedini->Target.has_value() && parsedini->Target == L"C:\\Windows\\System32\\notepad.exe", "Template INI target is notepad.exe");
+  TEST_ASSERT(parsedini->WorkingDirectory.has_value() && parsedini->WorkingDirectory == L"C:\\", "Template INI CWD is C:\\");
+  TEST_ASSERT(parsedini->DesktopStation.has_value() && parsedini->DesktopStation == L"winsta0\\default", "Template INI desktop is winsta0\\default");
+  TEST_ASSERT(parsedini->Profile.has_value() && parsedini->Profile == L"DeployAdmin", "Template INI profile is DeployAdmin");
+  TEST_ASSERT(parsedini->UserContext.has_value() && parsedini->UserContext->Username == L"TargetUser", "Template INI username is TargetUser");
+  TEST_ASSERT(parsedini->EnvMutations.size() == 3, "Template INI contains 3 env mutations (1 set, 2 remove)");
+}
+
+static void TestTemplateFileWriter() {
+  wchar_t temppath[MAX_PATH] = {0};
+  ::GetTempPathW(MAX_PATH, temppath);
+
+  std::wstring tempjson = std::wstring(temppath) + L"test_template_file.clix.json";
+  std::wstring tempini = std::wstring(temppath) + L"test_template_file.clix.ini";
+
+  std::string errmsg;
+  bool jsonwritten = dogdouclix::ConfigParser::WriteTemplateFile(tempjson, "json", &errmsg);
+  TEST_ASSERT(jsonwritten, "WriteTemplateFile for JSON succeeds");
+
+  auto parsedjson = dogdouclix::ConfigParser::ParseFile(tempjson);
+  TEST_ASSERT(parsedjson.has_value(), "ParseFile on generated JSON file succeeds");
+  ::DeleteFileW(tempjson.c_str());
+
+  bool iniwritten = dogdouclix::ConfigParser::WriteTemplateFile(tempini, "ini", &errmsg);
+  TEST_ASSERT(iniwritten, "WriteTemplateFile for INI succeeds");
+
+  auto parsedini = dogdouclix::ConfigParser::ParseFile(tempini);
+  TEST_ASSERT(parsedini.has_value(), "ParseFile on generated INI file succeeds");
+  ::DeleteFileW(tempini.c_str());
+
+  bool badformat = dogdouclix::ConfigParser::WriteTemplateFile(tempjson, "unsupported_fmt", &errmsg);
+  TEST_ASSERT(!badformat, "WriteTemplateFile with unsupported format fails");
+  TEST_ASSERT(!errmsg.empty(), "WriteTemplateFile with unsupported format produces error message");
+}
+
+static void TestScaffoldingCommandLine() {
+  wchar_t temppath[MAX_PATH] = {0};
+  ::GetTempPathW(MAX_PATH, temppath);
+
+  std::wstring outjson = std::wstring(temppath) + L"clix_cli_scaffold_test.json";
+  std::wstring outini = std::wstring(temppath) + L"clix_cli_scaffold_test.ini";
+
+  // Test --clix-template json
+  {
+    wchar_t a0[] = L"dogdouclix.exe";
+    wchar_t a1[] = L"--clix-template";
+    wchar_t a2[] = L"json";
+    wchar_t* argv[] = { a0, a1, a2 };
+    const wchar_t* raw = L"dogdouclix.exe --clix-template json";
+    auto opt = dogdouclix::Forwarder::ParseCommandLine(3, argv, raw);
+    TEST_ASSERT(!opt.has_value(), "--clix-template json returns nullopt (intercepted command)");
+  }
+
+  // Test --clix-init json <outjson>
+  {
+    wchar_t a0[] = L"dogdouclix.exe";
+    wchar_t a1[] = L"--clix-init";
+    wchar_t a2[] = L"json";
+    wchar_t a3[MAX_PATH] = {0};
+    wcscpy_s(a3, outjson.c_str());
+    wchar_t* argv[] = { a0, a1, a2, a3 };
+    std::wstring raw = L"dogdouclix.exe --clix-init json " + outjson;
+    auto opt = dogdouclix::Forwarder::ParseCommandLine(4, argv, raw.c_str());
+    TEST_ASSERT(!opt.has_value(), "--clix-init json <path> returns nullopt (intercepted command)");
+
+    auto parsed = dogdouclix::ConfigParser::ParseFile(outjson);
+    TEST_ASSERT(parsed.has_value(), "Scaffolded JSON file is readable and valid");
+    ::DeleteFileW(outjson.c_str());
+  }
+
+  // Test --clix-init ini <outini>
+  {
+    wchar_t a0[] = L"dogdouclix.exe";
+    wchar_t a1[] = L"--clix-init";
+    wchar_t a2[] = L"ini";
+    wchar_t a3[MAX_PATH] = {0};
+    wcscpy_s(a3, outini.c_str());
+    wchar_t* argv[] = { a0, a1, a2, a3 };
+    std::wstring raw = L"dogdouclix.exe --clix-init ini " + outini;
+    auto opt = dogdouclix::Forwarder::ParseCommandLine(4, argv, raw.c_str());
+    TEST_ASSERT(!opt.has_value(), "--clix-init ini <path> returns nullopt (intercepted command)");
+
+    auto parsed = dogdouclix::ConfigParser::ParseFile(outini);
+    TEST_ASSERT(parsed.has_value(), "Scaffolded INI file is readable and valid");
+    ::DeleteFileW(outini.c_str());
+  }
+}
+
 int main() {
   std::cout << "=== Running DogdouClix Core Test Suite ===\n";
   TestStringConversions();
@@ -493,6 +601,9 @@ int main() {
   TestConfigParserJson();
   TestConfigParserIni();
   TestJsonNestedStringBrackets();
+  TestTemplateGeneration();
+  TestTemplateFileWriter();
+  TestScaffoldingCommandLine();
   TestTargetResolverSplitPath();
   TestTargetResolverPathPenetration();
   TestTargetResolverCompanionConfig();

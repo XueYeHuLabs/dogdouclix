@@ -57,6 +57,12 @@ Used when DogdouClix is deployed as a drop-in replacement for a target executabl
 | `--clix-version`, `-V` | _(None)_ | Displays version information. |
 | `--clix-help`, `-h` | _(None)_ | Displays help and usage message. |
 
+### Scaffolding Commands
+| Command | Parameters | Description |
+| :--- | :--- | :--- |
+| `--clix-init` | `<json\|ini> [path]` | Generates a standard companion configuration template file (default: `clix.json` / `clix.ini`). |
+| `--clix-template` | `<json\|ini>` | Prints a companion configuration template directly to standard output (`stdout`). |
+
 ### Credential Profile Management Commands
 | Command | Parameters | Description |
 | :--- | :--- | :--- |
@@ -67,26 +73,33 @@ Used when DogdouClix is deployed as a drop-in replacement for a target executabl
 
 ### CLI Usage Examples
 ```powershell
-# 1. Register an OS user credential profile in Windows Credential Manager
+# 1. Quick scaffold a template companion configuration file
+dogdouclix.exe --clix-init json
+dogdouclix.exe --clix-init ini git.exe.clix.ini
+
+# 2. Output template directly to stdout (useful for redirection/piping)
+dogdouclix.exe --clix-template json > app.clix.json
+
+# 3. Register an OS user credential profile in Windows Credential Manager
 dogdouclix.exe --clix-profile-set DeployAdmin `
   --clix-user DeployBot `
   --clix-domain CORP `
   --clix-password "SuperSecretPass123!"
 
-# 2. View registered profiles
+# 4. View registered profiles
 dogdouclix.exe --clix-profile-list
 dogdouclix.exe --clix-profile-get DeployAdmin
 
-# 3. Execute target using secure OS credentials (no passwords exposed on command line)
+# 5. Execute target using secure OS credentials (no passwords exposed on command line)
 dogdouclix.exe --clix-profile DeployAdmin python.exe deploy.py
 
-# 4. Inject an environment variable ad-hoc without altering parent shell
+# 6. Inject an environment variable ad-hoc without altering parent shell
 dogdouclix.exe --clix-env-set API_KEY=secret_token_123 python.exe fetch_data.py
 
-# 5. Redact a sensitive token from child environment
+# 7. Redact a sensitive token from child environment
 dogdouclix.exe --clix-env-remove AWS_SECRET_ACCESS_KEY node.exe deploy.js
 
-# 6. Switch working directory and pass flags containing dashes
+# 8. Switch working directory and pass flags containing dashes
 dogdouclix.exe --clix-cwd "D:\Project" -- git.exe log -n 5
 ```
 

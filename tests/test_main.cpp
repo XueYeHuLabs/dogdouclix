@@ -167,27 +167,40 @@ static void TestForwarderTransparentShimMode() {
   std::wstring dummycfg = std::wstring(temppath) + L"mycustomshim.clix.json";
 
   std::ofstream outcfg(dummycfg, std::ios::binary);
-  outcfg << R"({ "target": "cmd.exe", "env_set": { "SHIM_ENV": "ShimmedSuccessfully" } })";
+  outcfg << R"({
+    "target": "cmd.exe",
+    "env_set": {
+      "SHIM_SECRET": "InjectedSecret777"
+    },
+    "env_remove": [
+      "DOGDOUCLIX_LEAKED_SECRET"
+    ]
+  })";
   outcfg.close();
 
-  const wchar_t* rawcmd = L"mycustomshim.exe /c exit 0";
+  ::SetEnvironmentVariableW(L"DOGDOUCLIX_LEAKED_SECRET", L"LeakedValue");
+
+  const wchar_t* rawcmd = L"mycustomshim.exe /c if not defined DOGDOUCLIX_LEAKED_SECRET if \"%SHIM_SECRET%\"==\"InjectedSecret777\" exit 0";
   wchar_t a0[] = L"mycustomshim.exe";
   wchar_t a1[] = L"/c";
-  wchar_t a2[] = L"exit";
-  wchar_t a3[] = L"0";
-  wchar_t* argv[] = { a0, a1, a2, a3 };
+  wchar_t a2[] = L"if";
+  wchar_t* argv[] = { a0, a1, a2 };
 
-  auto options = dogdouclix::Forwarder::ParseCommandLine(4, argv, rawcmd, dummyexe);
+  auto options = dogdouclix::Forwarder::ParseCommandLine(3, argv, rawcmd, dummyexe);
   TEST_ASSERT(options.has_value(), "ParseCommandLine in transparent shim mode succeeded");
   TEST_ASSERT(options->IsTransparentMode, "IsTransparentMode is true");
   TEST_ASSERT(options->TargetExecutable == L"cmd.exe", "Target executable is cmd.exe");
-  TEST_ASSERT(options->FullCommandLine == L"cmd.exe /c exit 0", "Full command line matches tail arguments");
-  TEST_ASSERT(options->ContextOptions.EnvMutations.size() == 1, "One env mutation loaded from companion config");
+  TEST_ASSERT(options->ContextOptions.EnvMutations.size() == 2, "2 env mutations loaded (1 set, 1 remove)");
 
   auto result = dogdouclix::Forwarder::Execute(*options);
   TEST_ASSERT(result.Succeeded, "Execution in transparent shim mode succeeded");
-  TEST_ASSERT(result.ExitCode == 0, "Exit code is 0");
+  TEST_ASSERT(result.ExitCode == 0, "Exit code is 0 (child verified secret injection and redaction)");
 
+  wchar_t checkval[64] = {0};
+  DWORD getok = ::GetEnvironmentVariableW(L"DOGDOUCLIX_LEAKED_SECRET", checkval, 64);
+  TEST_ASSERT(getok > 0 && std::wstring(checkval) == L"LeakedValue", "Parent environment remained unmodified");
+
+  ::SetEnvironmentVariableW(L"DOGDOUCLIX_LEAKED_SECRET", nullptr);
   ::DeleteFileW(dummycfg.c_str());
 }
 

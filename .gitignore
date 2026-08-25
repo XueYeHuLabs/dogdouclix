@@ -18,11 +18,21 @@ desktop.ini
 !.vscode/launch.json
 !.vscode/extensions.json
 .idea/
+.vs/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
+*.vcxproj*
 *.sw?
+
+# CMake & C++ Build
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+Testing/
+*.cmake.bak
+CMakeUserPresets.json
 
 # Node.js
 node_modules/
@@ -69,3 +79,6 @@ logs/
 *.temp
 tmp/
 temp/
+
+# DogdouSpec runtime temporary staging files
+/.dogdouspec/_tmp/

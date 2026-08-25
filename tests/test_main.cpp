@@ -1,9 +1,11 @@
 #include "dogdouclix/common.hpp"
 #include "dogdouclix/context_transform.hpp"
 #include "dogdouclix/config_parser.hpp"
+#include "dogdouclix/target_resolver.hpp"
 #include "dogdouclix/forwarder.hpp"
 #include <shellapi.h>
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 
 #define TEST_ASSERT(Condition, Message) \
@@ -117,6 +119,45 @@ static void TestConfigParserIni() {
   TEST_ASSERT(cfg->WorkingDirectory.has_value() && *cfg->WorkingDirectory == L"C:\\Temp", "CWD matches in INI");
   TEST_ASSERT(cfg->EnvMutations.size() == 3, "3 env mutations in INI");
   TEST_ASSERT(cfg->UserContext.has_value() && cfg->UserContext->Username == L"Alice", "Username matches in INI");
+}
+
+static void TestTargetResolverSplitPath() {
+  std::wstring dir;
+  std::wstring filename;
+  std::wstring basename;
+
+  dogdouclix::TargetResolver::SplitPath(L"C:\\tools\\git.exe", dir, filename, basename);
+  TEST_ASSERT(dir == L"C:\\tools", "Directory parsed as C:\\tools");
+  TEST_ASSERT(filename == L"git.exe", "Filename parsed as git.exe");
+  TEST_ASSERT(basename == L"git", "Basename parsed as git");
+}
+
+static void TestTargetResolverPathPenetration() {
+  // Penetrate PATH for cmd.exe skipping a fictitious directory
+  auto penetrated = dogdouclix::TargetResolver::PenetratePath(L"cmd.exe", L"C:\\fake_shim_dir");
+  TEST_ASSERT(penetrated.has_value(), "PATH penetration found cmd.exe");
+  TEST_ASSERT(penetrated->find(L"cmd.exe") != std::wstring::npos, "Penetrated path contains cmd.exe");
+}
+
+static void TestTargetResolverCompanionConfig() {
+  wchar_t temppath[MAX_PATH] = {0};
+  ::GetTempPathW(MAX_PATH, temppath);
+
+  std::wstring dummyexe = std::wstring(temppath) + L"dummytool.exe";
+  std::wstring dummycfg = std::wstring(temppath) + L"dummytool.clix.json";
+
+  std::ofstream outcfg(dummycfg, std::ios::binary);
+  outcfg << R"({ "target": "cmd.exe", "env_set": { "SHIM_FLAG": "Active" } })";
+  outcfg.close();
+
+  auto res = dogdouclix::TargetResolver::Resolve(dummyexe);
+  TEST_ASSERT(res.has_value(), "TargetResolver resolved companion config");
+  TEST_ASSERT(res->IsTransparentShim, "IsTransparentShim is true");
+  TEST_ASSERT(res->TargetExecutable == L"cmd.exe", "Target executable is cmd.exe");
+  TEST_ASSERT(res->LoadedConfig.has_value(), "Config loaded");
+  TEST_ASSERT(res->LoadedConfig->EnvMutations.size() == 1, "Env mutation loaded");
+
+  ::DeleteFileW(dummycfg.c_str());
 }
 
 static void TestEnvironmentBlockMutations() {
@@ -275,6 +316,9 @@ int main() {
   TestArgumentQuoting();
   TestConfigParserJson();
   TestConfigParserIni();
+  TestTargetResolverSplitPath();
+  TestTargetResolverPathPenetration();
+  TestTargetResolverCompanionConfig();
   TestEnvironmentBlockMutations();
   TestCommandLineParsing();
   TestProcessExecutionAndExitCodes();

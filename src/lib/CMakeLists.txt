@@ -4,6 +4,7 @@ add_library(dogdouclix_core STATIC
     process_launcher.cpp
     forwarder.cpp
     config_parser.cpp
+    target_resolver.cpp
 )
 
 target_include_directories(dogdouclix_core PUBLIC

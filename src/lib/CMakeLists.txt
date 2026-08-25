@@ -3,6 +3,7 @@ add_library(dogdouclix_core STATIC
     context_transform.cpp
     process_launcher.cpp
     forwarder.cpp
+    config_parser.cpp
 )
 
 target_include_directories(dogdouclix_core PUBLIC

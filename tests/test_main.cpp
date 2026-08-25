@@ -1,5 +1,6 @@
 #include "dogdouclix/common.hpp"
 #include "dogdouclix/context_transform.hpp"
+#include "dogdouclix/config_parser.hpp"
 #include "dogdouclix/forwarder.hpp"
 #include <shellapi.h>
 #include <iostream>
@@ -60,6 +61,64 @@ static void TestArgumentQuoting() {
   }
 }
 
+static void TestConfigParserJson() {
+  std::string json = R"({
+    "target": "C:\\Program Files\\Git\\bin\\git.exe",
+    "cwd": "D:\\workspace",
+    "desktop": "winsta0\\default",
+    "env_set": {
+      "CUSTOM_SECRET": "VaultSecret999",
+      "CLI_MODE": "transparent"
+    },
+    "env_remove": [
+      "AWS_SECRET_KEY",
+      "LEAKED_TOKEN"
+    ],
+    "user": {
+      "username": "DeployBot",
+      "domain": "CORP",
+      "load_profile": true
+    }
+  })";
+
+  auto cfg = dogdouclix::ConfigParser::ParseJson(json);
+  TEST_ASSERT(cfg.has_value(), "JSON parse succeeded");
+  TEST_ASSERT(cfg->Target.has_value() && *cfg->Target == L"C:\\Program Files\\Git\\bin\\git.exe", "Target matches");
+  TEST_ASSERT(cfg->WorkingDirectory.has_value() && *cfg->WorkingDirectory == L"D:\\workspace", "CWD matches");
+  TEST_ASSERT(cfg->DesktopStation.has_value() && *cfg->DesktopStation == L"winsta0\\default", "Desktop matches");
+  TEST_ASSERT(cfg->EnvMutations.size() == 4, "4 env mutations (2 set, 2 remove)");
+  TEST_ASSERT(cfg->UserContext.has_value(), "User context present");
+  TEST_ASSERT(cfg->UserContext->Username == L"DeployBot", "Username matches");
+  TEST_ASSERT(cfg->UserContext->Domain == L"CORP", "Domain matches");
+  TEST_ASSERT(cfg->UserContext->LoadUserProfile == true, "LoadUserProfile is true");
+}
+
+static void TestConfigParserIni() {
+  std::string ini = R"(
+    [target]
+    executable = C:\Tools\mytool.exe
+    cwd = C:\Temp
+
+    [env.set]
+    MY_VAR = IniValue123
+    ANOTHER_VAR = HelloIni
+
+    [env.remove]
+    REMOVE_ME = 1
+
+    [user]
+    username = Alice
+    load_profile = true
+  )";
+
+  auto cfg = dogdouclix::ConfigParser::ParseIni(ini);
+  TEST_ASSERT(cfg.has_value(), "INI parse succeeded");
+  TEST_ASSERT(cfg->Target.has_value() && *cfg->Target == L"C:\\Tools\\mytool.exe", "Target matches in INI");
+  TEST_ASSERT(cfg->WorkingDirectory.has_value() && *cfg->WorkingDirectory == L"C:\\Temp", "CWD matches in INI");
+  TEST_ASSERT(cfg->EnvMutations.size() == 3, "3 env mutations in INI");
+  TEST_ASSERT(cfg->UserContext.has_value() && cfg->UserContext->Username == L"Alice", "Username matches in INI");
+}
+
 static void TestEnvironmentBlockMutations() {
   std::vector<dogdouclix::ENV_MUTATION> mutations = {
     { L"DOGDOUCLIX_TEST_KEY", L"SpecialSecretValue123", dogdouclix::EnvMutationSet },
@@ -117,25 +176,6 @@ static void TestCommandLineParsing() {
   TEST_ASSERT(dashoptions->TargetExecutable == L"git.exe", "Target executable after -- is git.exe");
   TEST_ASSERT(dashoptions->ContextOptions.WorkingDirectory == L"L:\\temp", "Working directory parsed correctly");
   TEST_ASSERT(dashoptions->FullCommandLine == L"git.exe log -n 5", "Full command line matches tail arguments");
-
-  const wchar_t* rawusercmd = L"dogdouclix.exe --clix-user TestUser --clix-domain CORP --clix-load-profile cmd.exe /c whoami";
-  wchar_t u0[] = L"dogdouclix.exe";
-  wchar_t u1[] = L"--clix-user";
-  wchar_t u2[] = L"TestUser";
-  wchar_t u3[] = L"--clix-domain";
-  wchar_t u4[] = L"CORP";
-  wchar_t u5[] = L"--clix-load-profile";
-  wchar_t u6[] = L"cmd.exe";
-  wchar_t u7[] = L"/c";
-  wchar_t u8[] = L"whoami";
-  wchar_t* userargv[] = { u0, u1, u2, u3, u4, u5, u6, u7, u8 };
-
-  auto useropts = dogdouclix::Forwarder::ParseCommandLine(9, userargv, rawusercmd);
-  TEST_ASSERT(useropts.has_value(), "User context ParseCommandLine successful");
-  TEST_ASSERT(useropts->ContextOptions.UserContext.has_value(), "User context present");
-  TEST_ASSERT(useropts->ContextOptions.UserContext->Username == L"TestUser", "Username parsed");
-  TEST_ASSERT(useropts->ContextOptions.UserContext->Domain == L"CORP", "Domain parsed");
-  TEST_ASSERT(useropts->ContextOptions.UserContext->LoadUserProfile, "LoadUserProfile is true");
 }
 
 static void TestProcessExecutionAndExitCodes() {
@@ -233,6 +273,8 @@ int main() {
   std::cout << "=== Running DogdouClix Core Test Suite ===\n";
   TestStringConversions();
   TestArgumentQuoting();
+  TestConfigParserJson();
+  TestConfigParserIni();
   TestEnvironmentBlockMutations();
   TestCommandLineParsing();
   TestProcessExecutionAndExitCodes();

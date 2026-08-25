@@ -247,6 +247,47 @@ static void TestCredManagerCrud() {
   TEST_ASSERT(!afterdel.has_value(), "Profile successfully deleted from Credential Manager");
 }
 
+static void TestProfileConfigIntegration() {
+  dogdouclix::CRED_PROFILE prof;
+  prof.Name = L"TEST_CONFIG_INT_PROFILE";
+  prof.EnvMutations.push_back({ L"VAULT_INJECTED_SEC", L"VaultTokenLive555", dogdouclix::EnvMutationSet });
+  prof.EnvMutations.push_back({ L"DOGDOUCLIX_REMOVED_SEC", L"", dogdouclix::EnvMutationRemove });
+
+  std::string error;
+  bool saved = dogdouclix::CredManager::SaveProfile(prof, &error);
+  TEST_ASSERT(saved, "SaveProfile for integration test succeeded");
+
+  ::SetEnvironmentVariableW(L"DOGDOUCLIX_REMOVED_SEC", L"OldSecret");
+
+  wchar_t temppath[MAX_PATH] = {0};
+  ::GetTempPathW(MAX_PATH, temppath);
+
+  std::wstring cfgpath = std::wstring(temppath) + L"test_profile_int.clix.json";
+  std::ofstream outcfg(cfgpath, std::ios::binary);
+  outcfg << R"({
+    "target": "cmd.exe",
+    "profile": "TEST_CONFIG_INT_PROFILE"
+  })";
+  outcfg.close();
+
+  auto cfg = dogdouclix::ConfigParser::ParseFile(cfgpath);
+  TEST_ASSERT(cfg.has_value(), "ParseFile with profile reference succeeded");
+  TEST_ASSERT(cfg->EnvMutations.size() == 2, "2 mutations merged from profile");
+
+  dogdouclix::FORWARDER_OPTIONS options;
+  options.TargetExecutable = *cfg->Target;
+  options.ContextOptions.EnvMutations = cfg->EnvMutations;
+  options.FullCommandLine = L"cmd.exe /c if not defined DOGDOUCLIX_REMOVED_SEC if \"%VAULT_INJECTED_SEC%\"==\"VaultTokenLive555\" exit 0";
+
+  auto res = dogdouclix::Forwarder::Execute(options);
+  TEST_ASSERT(res.Succeeded, "Execution with profile-injected secrets succeeded");
+  TEST_ASSERT(res.ExitCode == 0, "Exit code is 0 (child verified secret injection from Credential Manager)");
+
+  dogdouclix::CredManager::DeleteProfile(L"TEST_CONFIG_INT_PROFILE");
+  ::DeleteFileW(cfgpath.c_str());
+  ::SetEnvironmentVariableW(L"DOGDOUCLIX_REMOVED_SEC", nullptr);
+}
+
 static void TestEnvironmentBlockMutations() {
   std::vector<dogdouclix::ENV_MUTATION> mutations = {
     { L"DOGDOUCLIX_TEST_KEY", L"SpecialSecretValue123", dogdouclix::EnvMutationSet },
@@ -408,6 +449,7 @@ int main() {
   TestTargetResolverCompanionConfig();
   TestForwarderTransparentShimMode();
   TestCredManagerCrud();
+  TestProfileConfigIntegration();
   TestEnvironmentBlockMutations();
   TestCommandLineParsing();
   TestProcessExecutionAndExitCodes();

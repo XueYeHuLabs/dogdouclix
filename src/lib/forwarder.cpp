@@ -28,7 +28,6 @@ static const wchar_t* SkipOneToken(const wchar_t* Str) {
       ++backslashes;
     } else if (*Str == L'"') {
       if ((backslashes % 2) == 0) {
-        // Even backslashes mean unescaped quotation mark
         inquotes = !inquotes;
       }
       backslashes = 0;
@@ -107,7 +106,6 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
   int targetargindex = 1;
   const wchar_t* rawcursor = RawCommandLine;
 
-  // Skip argv[0] in raw command line
   rawcursor = SkipOneToken(rawcursor);
 
   while (targetargindex < Argc) {
@@ -122,6 +120,10 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
                  << L"  --clix-env-remove KEY      Unset an environment variable in child\n"
                  << L"  --clix-cwd <DIR>           Set working directory for target process\n"
                  << L"  --clix-desktop <DESKTOP>   Set desktop station (e.g. winsta0\\default)\n"
+                 << L"  --clix-user <USER>         Execute target under specified username\n"
+                 << L"  --clix-domain <DOMAIN>     Domain for user credentials\n"
+                 << L"  --clix-password <PWD>      Password for user credentials\n"
+                 << L"  --clix-load-profile        Load user profile when switching user\n"
                  << L"  --                         Stop option processing; next token is target executable\n"
                  << L"  --clix-version, -V         Show version\n"
                  << L"  --clix-help, -h            Show this help message\n";
@@ -158,6 +160,37 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
       targetargindex += 2;
       rawcursor = SkipOneToken(rawcursor);
       rawcursor = SkipOneToken(rawcursor);
+    } else if (arg == L"--clix-user" && targetargindex + 1 < Argc) {
+      if (!options.ContextOptions.UserContext.has_value()) {
+        options.ContextOptions.UserContext = USER_CONTEXT_CONFIG{};
+      }
+      options.ContextOptions.UserContext->Username = Argv[targetargindex + 1];
+      targetargindex += 2;
+      rawcursor = SkipOneToken(rawcursor);
+      rawcursor = SkipOneToken(rawcursor);
+    } else if (arg == L"--clix-domain" && targetargindex + 1 < Argc) {
+      if (!options.ContextOptions.UserContext.has_value()) {
+        options.ContextOptions.UserContext = USER_CONTEXT_CONFIG{};
+      }
+      options.ContextOptions.UserContext->Domain = Argv[targetargindex + 1];
+      targetargindex += 2;
+      rawcursor = SkipOneToken(rawcursor);
+      rawcursor = SkipOneToken(rawcursor);
+    } else if (arg == L"--clix-password" && targetargindex + 1 < Argc) {
+      if (!options.ContextOptions.UserContext.has_value()) {
+        options.ContextOptions.UserContext = USER_CONTEXT_CONFIG{};
+      }
+      options.ContextOptions.UserContext->Password = Argv[targetargindex + 1];
+      targetargindex += 2;
+      rawcursor = SkipOneToken(rawcursor);
+      rawcursor = SkipOneToken(rawcursor);
+    } else if (arg == L"--clix-load-profile") {
+      if (!options.ContextOptions.UserContext.has_value()) {
+        options.ContextOptions.UserContext = USER_CONTEXT_CONFIG{};
+      }
+      options.ContextOptions.UserContext->LoadUserProfile = true;
+      targetargindex += 1;
+      rawcursor = SkipOneToken(rawcursor);
     } else if (arg == L"--") {
       targetargindex += 1;
       rawcursor = SkipOneToken(rawcursor);
@@ -182,6 +215,18 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
 }
 
 FORWARDING_RESULT Forwarder::Execute(const FORWARDER_OPTIONS& Options) {
+  HANDLE usertoken = nullptr;
+  if (Options.ContextOptions.UserContext.has_value()) {
+    std::string error;
+    if (!AcquireUserToken(*Options.ContextOptions.UserContext, &usertoken, &error)) {
+      FORWARDING_RESULT errres;
+      errres.Succeeded = false;
+      errres.ErrorMessage = error;
+      errres.ExitCode = 1;
+      return errres;
+    }
+  }
+
   LAUNCH_CONFIG config;
   config.TargetExecutable = Options.TargetExecutable;
   config.FullCommandLine = Options.FullCommandLine;
@@ -189,13 +234,17 @@ FORWARDING_RESULT Forwarder::Execute(const FORWARDER_OPTIONS& Options) {
   config.DesktopStation = Options.ContextOptions.DesktopStation;
   config.EnvironmentBlock = BuildEnvironmentBlock(
     Options.ContextOptions.EnvMutations,
-    Options.ContextOptions.UserContext ? Options.ContextOptions.UserContext->ExistingToken : nullptr
+    usertoken
   );
-  if (Options.ContextOptions.UserContext) {
-    config.UserToken = Options.ContextOptions.UserContext->ExistingToken;
+  config.UserToken = usertoken;
+
+  auto result = ProcessLauncher::LaunchAndForward(config);
+
+  if (usertoken != nullptr) {
+    ::CloseHandle(usertoken);
   }
 
-  return ProcessLauncher::LaunchAndForward(config);
+  return result;
 }
 
 } // namespace dogdouclix

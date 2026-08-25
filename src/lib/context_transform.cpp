@@ -73,4 +73,66 @@ std::vector<wchar_t> BuildEnvironmentBlock(
   return block;
 }
 
+bool AcquireUserToken(
+  const USER_CONTEXT_CONFIG& UserConfig,
+  HANDLE* OutToken,
+  std::string* OutError
+) {
+  if (OutToken == nullptr) {
+    if (OutError != nullptr) {
+      *OutError = "Invalid output token pointer.";
+    }
+    return false;
+  }
+
+  if (UserConfig.ExistingToken != nullptr && UserConfig.ExistingToken != INVALID_HANDLE_VALUE) {
+    HANDLE duptoken = nullptr;
+    if (::DuplicateTokenEx(
+        UserConfig.ExistingToken,
+        MAXIMUM_ALLOWED,
+        nullptr,
+        SecurityImpersonation,
+        TokenPrimary,
+        &duptoken)) {
+      *OutToken = duptoken;
+      return true;
+    }
+    if (OutError != nullptr) {
+      *OutError = "DuplicateTokenEx failed: " + GetLastErrorMessage();
+    }
+    return false;
+  }
+
+  if (UserConfig.Username.has_value() && !UserConfig.Username->empty()) {
+    LPCWSTR user = UserConfig.Username->c_str();
+    LPCWSTR domain = UserConfig.Domain.has_value() ? UserConfig.Domain->c_str() : nullptr;
+    LPCWSTR pass = UserConfig.Password.has_value() ? UserConfig.Password->c_str() : L"";
+
+    HANDLE logontoken = nullptr;
+    BOOL logonok = ::LogonUserW(
+      user,
+      domain,
+      pass,
+      LOGON32_LOGON_INTERACTIVE,
+      LOGON32_PROVIDER_DEFAULT,
+      &logontoken
+    );
+
+    if (logonok) {
+      *OutToken = logontoken;
+      return true;
+    }
+
+    if (OutError != nullptr) {
+      *OutError = "LogonUserW failed for user '" + WideToUtf8(*UserConfig.Username) + "': " + GetLastErrorMessage();
+    }
+    return false;
+  }
+
+  if (OutError != nullptr) {
+    *OutError = "No valid user credentials or existing token supplied.";
+  }
+  return false;
+}
+
 } // namespace dogdouclix

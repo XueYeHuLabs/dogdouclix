@@ -117,6 +117,26 @@ static void TestCommandLineParsing() {
   TEST_ASSERT(dashoptions->TargetExecutable == L"git.exe", "Target executable after -- is git.exe");
   TEST_ASSERT(dashoptions->ContextOptions.WorkingDirectory == L"L:\\temp", "Working directory parsed correctly");
   TEST_ASSERT(dashoptions->FullCommandLine == L"git.exe log -n 5", "Full command line matches tail arguments");
+
+  // Test user context command line parsing
+  const wchar_t* rawusercmd = L"dogdouclix.exe --clix-user TestUser --clix-domain CORP --clix-load-profile cmd.exe /c whoami";
+  wchar_t u0[] = L"dogdouclix.exe";
+  wchar_t u1[] = L"--clix-user";
+  wchar_t u2[] = L"TestUser";
+  wchar_t u3[] = L"--clix-domain";
+  wchar_t u4[] = L"CORP";
+  wchar_t u5[] = L"--clix-load-profile";
+  wchar_t u6[] = L"cmd.exe";
+  wchar_t u7[] = L"/c";
+  wchar_t u8[] = L"whoami";
+  wchar_t* userargv[] = { u0, u1, u2, u3, u4, u5, u6, u7, u8 };
+
+  auto useropts = dogdouclix::Forwarder::ParseCommandLine(9, userargv, rawusercmd);
+  TEST_ASSERT(useropts.has_value(), "User context ParseCommandLine successful");
+  TEST_ASSERT(useropts->ContextOptions.UserContext.has_value(), "User context present");
+  TEST_ASSERT(useropts->ContextOptions.UserContext->Username == L"TestUser", "Username parsed");
+  TEST_ASSERT(useropts->ContextOptions.UserContext->Domain == L"CORP", "Domain parsed");
+  TEST_ASSERT(useropts->ContextOptions.UserContext->LoadUserProfile, "LoadUserProfile is true");
 }
 
 static void TestProcessExecutionAndExitCodes() {
@@ -133,7 +153,6 @@ static void TestProcessExecutionAndExitCodes() {
 }
 
 static void TestPipedStreamPassThrough() {
-  // Create an anonymous pipe to capture child process stdout
   HANDLE hreadpipe = nullptr;
   HANDLE hwritepipe = nullptr;
   SECURITY_ATTRIBUTES sa{};
@@ -153,14 +172,12 @@ static void TestPipedStreamPassThrough() {
 
   auto result = dogdouclix::Forwarder::Execute(options);
 
-  // Restore original stdout
   ::SetStdHandle(STD_OUTPUT_HANDLE, holdstdout);
   ::CloseHandle(hwritepipe);
 
   TEST_ASSERT(result.Succeeded, "Forwarder execution with piped stdout succeeded");
   TEST_ASSERT(result.ExitCode == 0, "Exit code is 0");
 
-  // Read captured output from the read end of the pipe
   char readbuffer[256] = {0};
   DWORD bytesread = 0;
   BOOL readok = ::ReadFile(hreadpipe, readbuffer, sizeof(readbuffer) - 1, &bytesread, nullptr);
@@ -171,6 +188,37 @@ static void TestPipedStreamPassThrough() {
   TEST_ASSERT(captured.find("PipedOutputVerificationString") != std::string::npos, "Piped stream captured expected child output");
 }
 
+static void TestEnvironmentIsolationAndMutation() {
+  // Set parent environment variable
+  ::SetEnvironmentVariableW(L"DOGDOUCLIX_PARENT_SECRET", L"ParentValueShouldBeRedacted");
+
+  dogdouclix::FORWARDER_OPTIONS options;
+  options.TargetExecutable = L"cmd.exe";
+  options.ContextOptions.EnvMutations.push_back({
+    L"DOGDOUCLIX_PARENT_SECRET",
+    L"",
+    dogdouclix::EnvMutationRemove
+  });
+  options.ContextOptions.EnvMutations.push_back({
+    L"DOGDOUCLIX_INJECTED_KEY",
+    L"InjectedValue987",
+    dogdouclix::EnvMutationSet
+  });
+  options.FullCommandLine = L"cmd.exe /c if not defined DOGDOUCLIX_PARENT_SECRET if \"%DOGDOUCLIX_INJECTED_KEY%\"==\"InjectedValue987\" exit 0";
+
+  auto result = dogdouclix::Forwarder::Execute(options);
+  TEST_ASSERT(result.Succeeded, "Execution with env mutation succeeded");
+  TEST_ASSERT(result.ExitCode == 0, "Child verified parent secret was redacted and injected key was present");
+
+  // Verify parent process environment variable was NOT modified
+  wchar_t parentval[64] = {0};
+  DWORD getok = ::GetEnvironmentVariableW(L"DOGDOUCLIX_PARENT_SECRET", parentval, 64);
+  TEST_ASSERT(getok > 0 && std::wstring(parentval) == L"ParentValueShouldBeRedacted", "Parent environment remained untouched");
+
+  // Clean up
+  ::SetEnvironmentVariableW(L"DOGDOUCLIX_PARENT_SECRET", nullptr);
+}
+
 int main() {
   std::cout << "=== Running DogdouClix Core Test Suite ===\n";
   TestStringConversions();
@@ -179,6 +227,7 @@ int main() {
   TestCommandLineParsing();
   TestProcessExecutionAndExitCodes();
   TestPipedStreamPassThrough();
+  TestEnvironmentIsolationAndMutation();
   std::cout << "=== All Tests Passed Successfully! ===\n";
   return 0;
 }

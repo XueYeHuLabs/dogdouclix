@@ -36,4 +36,11 @@ std::vector<wchar_t> BuildEnvironmentBlock(
   HANDLE UserToken = nullptr
 );
 
+// Logs on a user security token based on USER_CONTEXT_CONFIG
+bool AcquireUserToken(
+  const USER_CONTEXT_CONFIG& UserConfig,
+  HANDLE* OutToken,
+  std::string* OutError = nullptr
+);
+
 } // namespace dogdouclix

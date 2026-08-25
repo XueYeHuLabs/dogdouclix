@@ -37,6 +37,15 @@ public:
   // Quotes a single argument according to standard Windows CommandLineToArgvW rules
   static std::wstring QuoteArgument(std::wstring_view Arg);
 
+  // Runs configuration diagnostics and security identity probe
+  static bool RunDiagnostics(
+    const FORWARDER_OPTIONS& Options,
+    const std::optional<std::wstring>& ConfigPath = std::nullopt,
+    std::wostream& OutStream = std::wcout,
+    std::wostream& ErrStream = std::wcerr
+  );
+
+public:
   ~Forwarder() = default;
   Forwarder() = default;
 };

@@ -7,6 +7,7 @@
 #include <shellapi.h>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <cstdlib>
 
 #define TEST_ASSERT(Condition, Message) \
@@ -645,6 +646,75 @@ static void TestScaffoldingCommandLine() {
   }
 }
 
+static void TestDiagnosticsCommandAndReport() {
+  dogdouclix::FORWARDER_OPTIONS options;
+  options.TargetExecutable = L"cmd.exe";
+  options.FullCommandLine = L"cmd.exe /c exit 0";
+  options.ContextOptions.WorkingDirectory = L"C:\\";
+  options.ContextOptions.DesktopStation = L"winsta0\\default";
+  options.ContextOptions.EnvMutations.push_back({
+    L"DIAG_TEST_KEY",
+    L"DiagTestVal",
+    dogdouclix::EnvMutationSet
+  });
+
+  std::wstringstream outstream;
+  std::wstringstream errstream;
+
+  bool diagok = dogdouclix::Forwarder::RunDiagnostics(options, std::wstring(L"dummy_clix.json"), outstream, errstream);
+  TEST_ASSERT(diagok, "RunDiagnostics returned true for valid options");
+
+  std::wstring report = outstream.str();
+  TEST_ASSERT(report.find(L"DogdouClix Diagnostic & Identity Probe Report") != std::wstring::npos, "Report title found");
+  TEST_ASSERT(report.find(L"Computer Name") != std::wstring::npos, "Computer Name found in report");
+  TEST_ASSERT(report.find(L"Caller User Account") != std::wstring::npos, "Caller User Account found in report");
+  TEST_ASSERT(report.find(L"dummy_clix.json") != std::wstring::npos, "Config path found in report");
+  TEST_ASSERT(report.find(L"cmd.exe") != std::wstring::npos, "Target executable found in report");
+  TEST_ASSERT(report.find(L"DIAG_TEST_KEY=DiagTestVal") != std::wstring::npos, "Env mutation found in report");
+  TEST_ASSERT(report.find(L"Probe Status         : SUCCESS") != std::wstring::npos, "Probe status success found in report");
+  TEST_ASSERT(report.find(L"[PASS]") != std::wstring::npos, "PASS result found in report");
+}
+
+static void TestDiagnosticsCommandLineParsing() {
+  // Test --clix-diag interception
+  {
+    wchar_t a0[] = L"dogdouclix.exe";
+    wchar_t a1[] = L"--clix-diag";
+    wchar_t* argv[] = { a0, a1 };
+    const wchar_t* raw = L"dogdouclix.exe --clix-diag";
+    auto opt = dogdouclix::Forwarder::ParseCommandLine(2, argv, raw);
+    TEST_ASSERT(!opt.has_value(), "--clix-diag returns nullopt (intercepted command)");
+  }
+
+  // Test --clix-test interception
+  {
+    wchar_t a0[] = L"dogdouclix.exe";
+    wchar_t a1[] = L"--clix-test";
+    wchar_t* argv[] = { a0, a1 };
+    const wchar_t* raw = L"dogdouclix.exe --clix-test";
+    auto opt = dogdouclix::Forwarder::ParseCommandLine(2, argv, raw);
+    TEST_ASSERT(!opt.has_value(), "--clix-test returns nullopt (intercepted command)");
+  }
+}
+
+static void TestCrossUserExecutionAndEncoding() {
+  wchar_t currentuser[256] = {0};
+  DWORD usersize = 256;
+  ::GetUserNameW(currentuser, &usersize);
+
+  dogdouclix::FORWARDER_OPTIONS options;
+  options.TargetExecutable = L"cmd.exe";
+  options.FullCommandLine = L"cmd.exe /c echo DogdouClixUnicodeVerificationSuccess";
+
+  dogdouclix::USER_CONTEXT_CONFIG usercfg;
+  usercfg.Username = currentuser;
+  options.ContextOptions.UserContext = usercfg;
+
+  auto result = dogdouclix::Forwarder::Execute(options);
+  TEST_ASSERT(result.Succeeded, "Execution with user context succeeded");
+  TEST_ASSERT(result.ExitCode == 0, "Exit code is 0 for user context execution");
+}
+
 int main() {
   std::cout << "=== Running DogdouClix Core Test Suite ===\n";
   TestStringConversions();
@@ -669,6 +739,9 @@ int main() {
   TestPipedStreamPassThrough();
   TestWorkingDirectorySwitching();
   TestEnvironmentIsolationAndMutation();
+  TestDiagnosticsCommandAndReport();
+  TestDiagnosticsCommandLineParsing();
+  TestCrossUserExecutionAndEncoding();
   std::cout << "=== All Tests Passed Successfully! ===\n";
   return 0;
 }

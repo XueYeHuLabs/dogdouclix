@@ -9,6 +9,7 @@ typedef struct _TARGET_RESOLUTION {
   std::wstring TargetExecutable;
   bool IsTransparentShim{false};
   std::optional<CLIX_COMPANION_CONFIG> LoadedConfig;
+  std::optional<std::wstring> LoadedConfigPath;
 } TARGET_RESOLUTION;
 
 class TargetResolver {
@@ -35,6 +36,7 @@ public:
     std::wstring& OutBasename
   );
 
+public:
   ~TargetResolver() = default;
   TargetResolver() = default;
 };

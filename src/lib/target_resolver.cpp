@@ -162,6 +162,7 @@ std::optional<TARGET_RESOLUTION> TargetResolver::Resolve(const std::wstring& Cus
       auto parsed = ConfigParser::ParseFile(cfgpath);
       if (parsed.has_value()) {
         res.LoadedConfig = *parsed;
+        res.LoadedConfigPath = cfgpath;
         res.IsTransparentShim = true;
         break;
       }

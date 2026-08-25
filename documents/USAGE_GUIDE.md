@@ -58,6 +58,12 @@ Used when DogdouClix is deployed as a drop-in replacement for a target executabl
 | `--clix-version`, `-V` | _(None)_ | Displays version information. |
 | `--clix-help`, `-h` | _(None)_ | Displays help and usage message. |
 
+### Diagnostic Commands
+| Command | Parameters | Description |
+| :--- | :--- | :--- |
+| `--clix-diag` | `[FILE]` | Inspects configuration, credentials, and probes real child process runtime identity. |
+| `--clix-test` | `[FILE]` | Alias for `--clix-diag`. |
+
 ### Scaffolding Commands
 | Command | Parameters | Description |
 | :--- | :--- | :--- |
@@ -102,6 +108,11 @@ dogdouclix.exe --clix-env-remove AWS_SECRET_ACCESS_KEY node.exe deploy.js
 
 # 8. Switch working directory and pass flags containing dashes
 dogdouclix.exe --clix-cwd "D:\Project" -- git.exe log -n 5
+
+# 9. Run diagnostics and live identity probe on configuration
+dogdouclix.exe --clix-diag
+dogdouclix.exe --clix-diag clix.json
+dogdouclix.exe --clix-test custom.clix.ini
 ```
 
 > [!WARNING]

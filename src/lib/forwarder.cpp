@@ -155,6 +155,9 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
                  << L"  --clix-logon-type <TYPE>   Logon type (interactive/batch/service/network/new_credentials)\n"
                  << L"  --clix-load-profile        Load user profile when switching user\n"
                  << L"  --                         Stop option processing; next token is target executable\n\n"
+                 << L"Diagnostic Commands:\n"
+                 << L"  --clix-diag [FILE]         Inspect configuration, credentials, and probe process/identity\n"
+                 << L"  --clix-test [FILE]         Alias for --clix-diag\n\n"
                  << L"Scaffolding Commands:\n"
                  << L"  --clix-init <json|ini> [path]   Generate template configuration file (default: clix.json / clix.ini)\n"
                  << L"  --clix-template <json|ini>      Print configuration template directly to stdout\n\n"
@@ -163,6 +166,30 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
                  << L"  --clix-profile-get <NAME>          Display credential metadata from Credential Manager\n"
                  << L"  --clix-profile-delete <NAME>       Delete credential profile from Credential Manager\n"
                  << L"  --clix-profile-list                List all registered credential profiles\n";
+      return std::nullopt;
+    } else if (arg == L"--clix-diag" || arg == L"--clix-test") {
+      std::optional<std::wstring> diagcfgpath;
+      if (targetargindex + 1 < Argc && !std::wstring_view(Argv[targetargindex + 1]).starts_with(L"--")) {
+        std::wstring candpath = Argv[targetargindex + 1];
+        if (candpath.ends_with(L".json") || candpath.ends_with(L".ini") || (::GetFileAttributesW(candpath.c_str()) != INVALID_FILE_ATTRIBUTES)) {
+          diagcfgpath = candpath;
+          auto parsed = ConfigParser::ParseFile(candpath);
+          if (parsed.has_value()) {
+            options.ContextOptions.EnvMutations = parsed->EnvMutations;
+            options.ContextOptions.WorkingDirectory = parsed->WorkingDirectory;
+            options.ContextOptions.DesktopStation = parsed->DesktopStation;
+            options.ContextOptions.UserContext = parsed->UserContext;
+            if (parsed->Target.has_value()) {
+              options.TargetExecutable = *parsed->Target;
+            }
+          }
+        } else {
+          options.TargetExecutable = candpath;
+        }
+      } else if (resolved.has_value() && resolved->LoadedConfigPath.has_value()) {
+        diagcfgpath = resolved->LoadedConfigPath;
+      }
+      RunDiagnostics(options, diagcfgpath);
       return std::nullopt;
     } else if (arg == L"--clix-template" && targetargindex + 1 < Argc) {
       std::wstring formatarg = Argv[targetargindex + 1];
@@ -431,16 +458,64 @@ std::optional<FORWARDER_OPTIONS> Forwarder::ParseCommandLine(
   return std::nullopt;
 }
 
+static bool IsCurrentUserConfig(const USER_CONTEXT_CONFIG& UserConfig) {
+  if (UserConfig.ExistingToken != nullptr && UserConfig.ExistingToken != INVALID_HANDLE_VALUE) {
+    return false;
+  }
+  if (!UserConfig.Username.has_value() || UserConfig.Username->empty()) {
+    return true;
+  }
+
+  wchar_t currentuser[256] = {0};
+  DWORD usersize = 256;
+  if (!::GetUserNameW(currentuser, &usersize)) {
+    return false;
+  }
+
+  std::wstring targetuser = *UserConfig.Username;
+  std::wstring targetdomain;
+  if (UserConfig.Domain.has_value() && !UserConfig.Domain->empty()) {
+    targetdomain = *UserConfig.Domain;
+  }
+
+  size_t slashpos = targetuser.find(L'\\');
+  if (slashpos != std::wstring::npos) {
+    targetdomain = targetuser.substr(0, slashpos);
+    targetuser = targetuser.substr(slashpos + 1);
+  }
+
+  if (::_wcsicmp(targetuser.c_str(), currentuser) != 0) {
+    return false;
+  }
+
+  if (!targetdomain.empty()) {
+    wchar_t compname[MAX_COMPUTERNAME_LENGTH + 1] = {0};
+    DWORD compsize = MAX_COMPUTERNAME_LENGTH + 1;
+    if (::GetComputerNameW(compname, &compsize)) {
+      if (::_wcsicmp(targetdomain.c_str(), compname) != 0 &&
+          targetdomain != L"." &&
+          targetdomain != L"localhost") {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 FORWARDING_RESULT Forwarder::Execute(const FORWARDER_OPTIONS& Options) {
   HANDLE usertoken = nullptr;
-  if (Options.ContextOptions.UserContext.has_value()) {
-    std::string error;
-    if (!AcquireUserToken(*Options.ContextOptions.UserContext, &usertoken, &error)) {
-      FORWARDING_RESULT errres;
-      errres.Succeeded = false;
-      errres.ErrorMessage = error;
-      errres.ExitCode = 1;
-      return errres;
+  if (Options.ContextOptions.UserContext.has_value() && !IsCurrentUserConfig(*Options.ContextOptions.UserContext)) {
+    // If credentials (password) are NOT provided, acquire token via LogonUserW / ExistingToken
+    if (!Options.ContextOptions.UserContext->Password.has_value() || Options.ContextOptions.UserContext->Password->empty()) {
+      std::string error;
+      if (!AcquireUserToken(*Options.ContextOptions.UserContext, &usertoken, &error)) {
+        FORWARDING_RESULT errres;
+        errres.Succeeded = false;
+        errres.ErrorMessage = error;
+        errres.ExitCode = 1;
+        return errres;
+      }
     }
   }
 
@@ -449,6 +524,7 @@ FORWARDING_RESULT Forwarder::Execute(const FORWARDER_OPTIONS& Options) {
   config.FullCommandLine = Options.FullCommandLine;
   config.WorkingDirectory = Options.ContextOptions.WorkingDirectory;
   config.DesktopStation = Options.ContextOptions.DesktopStation;
+  config.UserContext = Options.ContextOptions.UserContext;
   config.EnvironmentBlock = BuildEnvironmentBlock(
     Options.ContextOptions.EnvMutations,
     usertoken
@@ -462,6 +538,248 @@ FORWARDING_RESULT Forwarder::Execute(const FORWARDER_OPTIONS& Options) {
   }
 
   return result;
+}
+
+bool Forwarder::RunDiagnostics(
+  const FORWARDER_OPTIONS& Options,
+  const std::optional<std::wstring>& ConfigPath,
+  std::wostream& OutStream,
+  std::wostream& ErrStream
+) {
+  (void)ErrStream;
+  OutStream << L"=================================================================\n";
+  OutStream << L"           DogdouClix Diagnostic & Identity Probe Report         \n";
+  OutStream << L"=================================================================\n\n";
+
+  // 1. Host and Caller Information
+  wchar_t compname[MAX_COMPUTERNAME_LENGTH + 1] = {0};
+  DWORD compsize = MAX_COMPUTERNAME_LENGTH + 1;
+  ::GetComputerNameW(compname, &compsize);
+
+  wchar_t username[256] = {0};
+  DWORD usersize = 256;
+  ::GetUserNameW(username, &usersize);
+
+  OutStream << L"[Host & Caller Context]\n";
+  OutStream << L"  Computer Name        : " << compname << L"\n";
+  OutStream << L"  Caller User Account  : " << username << L"\n\n";
+
+  // 2. Configuration & Target Resolution
+  OutStream << L"[Configuration & Target Resolution]\n";
+  OutStream << L"  Execution Mode       : " << (Options.IsTransparentMode ? L"Transparent Shim Mode" : L"Explicit Forwarder Mode") << L"\n";
+  if (ConfigPath.has_value()) {
+    OutStream << L"  Companion Config File: " << *ConfigPath << L"\n";
+  } else {
+    OutStream << L"  Companion Config File: (None specified or loaded)\n";
+  }
+
+  // Attempt to probe target path and working directory under target user token identity if configured
+  HANDLE usertoken = nullptr;
+  std::string tokenerr;
+  bool impersonated = false;
+
+  if (Options.ContextOptions.UserContext.has_value()) {
+    if (AcquireUserToken(*Options.ContextOptions.UserContext, &usertoken, &tokenerr)) {
+      if (::ImpersonateLoggedOnUser(usertoken)) {
+        impersonated = true;
+      }
+    }
+  }
+
+  if (Options.TargetExecutable.empty()) {
+    OutStream << L"  Target Executable    : (Not specified / Missing)\n";
+  } else {
+    DWORD attrs = ::GetFileAttributesW(Options.TargetExecutable.c_str());
+    DWORD err = (attrs == INVALID_FILE_ATTRIBUTES) ? ::GetLastError() : ERROR_SUCCESS;
+    bool exists = (attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY));
+
+    OutStream << L"  Target Executable    : " << Options.TargetExecutable;
+    if (exists) {
+      if (impersonated) {
+        OutStream << L" [FOUND & ACCESSIBLE (Verified under Target User Identity)]\n";
+      } else {
+        OutStream << L" [FOUND ON DISK]\n";
+      }
+    } else {
+      if (err == ERROR_ACCESS_DENIED) {
+        OutStream << L" [WARNING: ACCESS DENIED (Code 5) "
+                  << (impersonated ? L"under Target User Identity" : L"under Caller Identity") << L"]\n";
+      } else if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+        OutStream << L" [WARNING: NOT FOUND ON DISK]\n";
+      } else {
+        OutStream << L" [WARNING: INACCESSIBLE - " << Utf8ToWide(GetLastErrorMessage(err)) << L"]\n";
+      }
+    }
+  }
+
+  if (Options.ContextOptions.WorkingDirectory.has_value()) {
+    DWORD attrs = ::GetFileAttributesW(Options.ContextOptions.WorkingDirectory->c_str());
+    DWORD err = (attrs == INVALID_FILE_ATTRIBUTES) ? ::GetLastError() : ERROR_SUCCESS;
+    bool exists = (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY));
+
+    OutStream << L"  Working Directory    : " << *Options.ContextOptions.WorkingDirectory;
+    if (exists) {
+      if (impersonated) {
+        OutStream << L" [ACCESSIBLE (Verified under Target User Identity)]\n";
+      } else {
+        OutStream << L" [FOUND ON DISK]\n";
+      }
+    } else {
+      if (err == ERROR_ACCESS_DENIED) {
+        OutStream << L" [WARNING: ACCESS DENIED (Code 5) "
+                  << (impersonated ? L"under Target User Identity" : L"under Caller Identity") << L"]\n";
+      } else {
+        OutStream << L" [WARNING: DIRECTORY NOT FOUND]\n";
+      }
+    }
+  } else {
+    OutStream << L"  Working Directory    : (Current Working Directory)\n";
+  }
+
+  if (impersonated) {
+    ::RevertToSelf();
+  }
+  if (usertoken != nullptr) {
+    ::CloseHandle(usertoken);
+  }
+
+  OutStream << L"  Desktop Station      : "
+            << (Options.ContextOptions.DesktopStation.has_value() ? *Options.ContextOptions.DesktopStation : L"winsta0\\default (Default)") << L"\n";
+
+  OutStream << L"  Environment Mutations: ";
+  if (Options.ContextOptions.EnvMutations.empty()) {
+    OutStream << L"(None)\n";
+  } else {
+    OutStream << Options.ContextOptions.EnvMutations.size() << L" mutation(s)\n";
+    for (const auto& mut : Options.ContextOptions.EnvMutations) {
+      if (mut.Type == EnvMutationSet) {
+        OutStream << L"    [SET]    " << mut.Key << L"=" << mut.Value << L"\n";
+      } else {
+        OutStream << L"    [REMOVE] " << mut.Key << L"\n";
+      }
+    }
+  }
+  OutStream << L"\n";
+
+  // 3. User Identity & Security Context
+  OutStream << L"[User Identity & Credential Context]\n";
+  if (Options.ContextOptions.UserContext.has_value()) {
+    const auto& ucfg = *Options.ContextOptions.UserContext;
+    if (ucfg.Username.has_value() && !ucfg.Username->empty()) {
+      std::wstring fulluser;
+      if (ucfg.Domain.has_value() && !ucfg.Domain->empty()) {
+        fulluser = *ucfg.Domain + L"\\" + *ucfg.Username;
+      } else {
+        fulluser = *ucfg.Username;
+      }
+      OutStream << L"  Target User Account  : " << fulluser << L"\n";
+    } else {
+      OutStream << L"  Target User Account  : (Current Caller)\n";
+    }
+
+    if (ucfg.Password.has_value() && !ucfg.Password->empty()) {
+      OutStream << L"  Password Status      : [CONFIGURED - " << ucfg.Password->size() << L" chars]\n";
+    } else {
+      OutStream << L"  Password Status      : [NOT PROVIDED / NONE]\n";
+    }
+
+    OutStream << L"  Load User Profile    : " << (ucfg.LoadUserProfile ? L"true (LOGON_WITH_PROFILE)" : L"false") << L"\n";
+
+    if (ucfg.Username.has_value() && !ucfg.Username->empty() && ucfg.Password.has_value() && !ucfg.Password->empty()) {
+      OutStream << L"  Selected Launch API  : CreateProcessWithLogonW (Unprivileged Secondary Logon - Same as runas)\n";
+    } else if (ucfg.ExistingToken != nullptr) {
+      OutStream << L"  Selected Launch API  : CreateProcessWithTokenW / CreateProcessAsUserW (Existing Token Handle)\n";
+    } else {
+      OutStream << L"  Selected Launch API  : CreateProcessAsUserW via LogonUserW token\n";
+    }
+  } else {
+    OutStream << L"  User Context         : (No user switching requested; executes under caller identity)\n";
+    OutStream << L"  Selected Launch API  : CreateProcessW (Standard direct execution)\n";
+  }
+  OutStream << L"\n";
+
+  // 4. Live Identity & Execution Probe
+  OutStream << L"[Live Identity & Execution Probe]\n";
+  OutStream << L"  Executing diagnostic probe...\n";
+
+  LAUNCH_CONFIG probeconfig;
+  probeconfig.TargetExecutable = L"cmd.exe";
+  probeconfig.FullCommandLine = L"cmd.exe /c whoami";
+  probeconfig.WorkingDirectory = Options.ContextOptions.WorkingDirectory;
+  probeconfig.DesktopStation = Options.ContextOptions.DesktopStation;
+  probeconfig.UserContext = Options.ContextOptions.UserContext;
+  probeconfig.EnvironmentBlock = BuildEnvironmentBlock(Options.ContextOptions.EnvMutations);
+  probeconfig.DirectHandleInheritance = true;
+
+  HANDLE hreadpipe = nullptr;
+  HANDLE hwritepipe = nullptr;
+  SECURITY_ATTRIBUTES sa{};
+  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  sa.bInheritHandle = TRUE;
+  sa.lpSecurityDescriptor = nullptr;
+
+  std::string capturedoutput;
+  if (::CreatePipe(&hreadpipe, &hwritepipe, &sa, 0)) {
+    ::SetHandleInformation(hreadpipe, HANDLE_FLAG_INHERIT, 0);
+
+    HANDLE holdstdout = ::GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE holdstderr = ::GetStdHandle(STD_ERROR_HANDLE);
+    ::SetStdHandle(STD_OUTPUT_HANDLE, hwritepipe);
+    ::SetStdHandle(STD_ERROR_HANDLE, hwritepipe);
+
+    auto result = ProcessLauncher::LaunchAndForward(probeconfig);
+
+    ::SetStdHandle(STD_OUTPUT_HANDLE, holdstdout);
+    ::SetStdHandle(STD_ERROR_HANDLE, holdstderr);
+    ::CloseHandle(hwritepipe);
+
+    char buf[512] = {0};
+    DWORD bytesread = 0;
+    while (::ReadFile(hreadpipe, buf, sizeof(buf) - 1, &bytesread, nullptr) && bytesread > 0) {
+      buf[bytesread] = '\0';
+      capturedoutput += buf;
+    }
+    ::CloseHandle(hreadpipe);
+
+    while (!capturedoutput.empty() && (capturedoutput.back() == '\r' || capturedoutput.back() == '\n' || capturedoutput.back() == ' ')) {
+      capturedoutput.pop_back();
+    }
+
+    if (result.Succeeded && result.ExitCode == 0) {
+      OutStream << L"  Probe Status         : SUCCESS (Exit Code 0)\n";
+      OutStream << L"  Child Process Output : " << Utf8ToWide(capturedoutput) << L"\n";
+      OutStream << L"  Diagnostic Result    : [PASS] Target configuration and credentials validated successfully!\n";
+      OutStream << L"=================================================================\n";
+      return true;
+    } else {
+      OutStream << L"  Probe Status         : FAILED (Exit Code " << result.ExitCode << L")\n";
+      if (!result.ErrorMessage.empty()) {
+        OutStream << L"  Error Message        : " << Utf8ToWide(result.ErrorMessage) << L"\n";
+      }
+      if (!capturedoutput.empty()) {
+        OutStream << L"  Child Output         : " << Utf8ToWide(capturedoutput) << L"\n";
+      }
+      OutStream << L"  Diagnostic Result    : [FAIL] Process execution failed under this configuration.\n";
+      OutStream << L"=================================================================\n";
+      return false;
+    }
+  } else {
+    auto result = ProcessLauncher::LaunchAndForward(probeconfig);
+    if (result.Succeeded && result.ExitCode == 0) {
+      OutStream << L"  Probe Status         : SUCCESS (Exit Code 0)\n";
+      OutStream << L"  Diagnostic Result    : [PASS] Target configuration validated successfully!\n";
+      OutStream << L"=================================================================\n";
+      return true;
+    } else {
+      OutStream << L"  Probe Status         : FAILED (Exit Code " << result.ExitCode << L")\n";
+      if (!result.ErrorMessage.empty()) {
+        OutStream << L"  Error Message        : " << Utf8ToWide(result.ErrorMessage) << L"\n";
+      }
+      OutStream << L"  Diagnostic Result    : [FAIL] Process execution failed.\n";
+      OutStream << L"=================================================================\n";
+      return false;
+    }
+  }
 }
 
 } // namespace dogdouclix

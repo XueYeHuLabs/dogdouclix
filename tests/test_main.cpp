@@ -2,6 +2,7 @@
 #include "dogdouclix/context_transform.hpp"
 #include "dogdouclix/config_parser.hpp"
 #include "dogdouclix/target_resolver.hpp"
+#include "dogdouclix/cred_manager.hpp"
 #include "dogdouclix/forwarder.hpp"
 #include <shellapi.h>
 #include <iostream>
@@ -204,6 +205,48 @@ static void TestForwarderTransparentShimMode() {
   ::DeleteFileW(dummycfg.c_str());
 }
 
+static void TestCredManagerCrud() {
+  dogdouclix::CRED_PROFILE prof;
+  prof.Name = L"TEST_UNIT_PROFILE_1";
+  prof.Username = L"VaultAdmin";
+  prof.Domain = L"LOCALDOM";
+  prof.Password = L"SuperSecretPass999!";
+  prof.WorkingDirectory = L"C:\\VaultWork";
+  prof.LoadUserProfile = true;
+  prof.EnvMutations.push_back({ L"VAULT_TOKEN", L"SecretTokenXYZ", dogdouclix::EnvMutationSet });
+  prof.EnvMutations.push_back({ L"STRIPPED_SECRET", L"", dogdouclix::EnvMutationRemove });
+
+  std::string error;
+  bool saved = dogdouclix::CredManager::SaveProfile(prof, &error);
+  TEST_ASSERT(saved, "CredManager::SaveProfile succeeded: " + error);
+
+  auto loaded = dogdouclix::CredManager::GetProfile(L"TEST_UNIT_PROFILE_1", &error);
+  TEST_ASSERT(loaded.has_value(), "CredManager::GetProfile succeeded: " + error);
+  TEST_ASSERT(loaded->Name == L"TEST_UNIT_PROFILE_1", "Profile name matches");
+  TEST_ASSERT(loaded->Username.has_value() && *loaded->Username == L"VaultAdmin", "Username matches");
+  TEST_ASSERT(loaded->Domain.has_value() && *loaded->Domain == L"LOCALDOM", "Domain matches");
+  TEST_ASSERT(loaded->Password.has_value() && *loaded->Password == L"SuperSecretPass999!", "Password matches");
+  TEST_ASSERT(loaded->WorkingDirectory.has_value() && *loaded->WorkingDirectory == L"C:\\VaultWork", "CWD matches");
+  TEST_ASSERT(loaded->LoadUserProfile == true, "LoadUserProfile is true");
+  TEST_ASSERT(loaded->EnvMutations.size() == 2, "2 env mutations present");
+
+  auto list = dogdouclix::CredManager::ListProfiles(&error);
+  bool foundinlist = false;
+  for (const auto& item : list) {
+    if (item == L"TEST_UNIT_PROFILE_1") {
+      foundinlist = true;
+      break;
+    }
+  }
+  TEST_ASSERT(foundinlist, "Profile found in ListProfiles");
+
+  bool deleted = dogdouclix::CredManager::DeleteProfile(L"TEST_UNIT_PROFILE_1", &error);
+  TEST_ASSERT(deleted, "CredManager::DeleteProfile succeeded: " + error);
+
+  auto afterdel = dogdouclix::CredManager::GetProfile(L"TEST_UNIT_PROFILE_1");
+  TEST_ASSERT(!afterdel.has_value(), "Profile successfully deleted from Credential Manager");
+}
+
 static void TestEnvironmentBlockMutations() {
   std::vector<dogdouclix::ENV_MUTATION> mutations = {
     { L"DOGDOUCLIX_TEST_KEY", L"SpecialSecretValue123", dogdouclix::EnvMutationSet },
@@ -364,6 +407,7 @@ int main() {
   TestTargetResolverPathPenetration();
   TestTargetResolverCompanionConfig();
   TestForwarderTransparentShimMode();
+  TestCredManagerCrud();
   TestEnvironmentBlockMutations();
   TestCommandLineParsing();
   TestProcessExecutionAndExitCodes();

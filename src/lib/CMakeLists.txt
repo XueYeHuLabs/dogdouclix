@@ -5,6 +5,7 @@ add_library(dogdouclix_core STATIC
     forwarder.cpp
     config_parser.cpp
     target_resolver.cpp
+    cred_manager.cpp
 )
 
 target_include_directories(dogdouclix_core PUBLIC

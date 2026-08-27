@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tasks id="20260825-tasks-transparent-proxy" iteration="20260825-transparent-proxy" schema_version="1.0" revision="17">
+  <index>
+    <summary>Tasks for iteration 20260825-transparent-proxy.</summary>
+    <term key="iteration" value="20260825-transparent-proxy" />
+  </index>
+<task id="20260825-task-proxy-config" status="done" created_at="2026-08-25T01:40:00Z" updated_at="2026-08-25T01:44:30Z" started_at="2026-08-25T01:43:00Z" completed_at="2026-08-25T01:44:30Z">
+    <index>
+      <summary>Implement companion configuration parser for JSON and INI formats.</summary>
+      <term key="task" value="20260825-task-proxy-config" />
+      <term key="status" value="done" />
+    </index>
+    <title>Implement companion configuration parser for JSON and INI formats</title>
+    <objective>Implement lightweight C++20 JSON and INI configuration parser supporting target path, environment mutations, working directory, and user context settings.</objective>
+    <rationale>Enable declarative configuration of shims without hardcoding target paths or context rules in binaries.</rationale>
+    <scope>
+      <repository path="src/">
+        <include path="include/dogdouclix/config_parser.hpp" />
+        <include path="src/lib/config_parser.cpp" />
+        <include path="tests/test_main.cpp" />
+      </repository>
+    </scope>
+    <origin>
+      <ref scope="iteration" target="20260825-req-proxy-config-parser" relation="implements" />
+    </origin>
+    <constraints />
+    <acceptance>
+      <criterion id="20260825-crit-config-parse-pass" status="passed">JSON and INI configuration files are parsed accurately with full error reporting.</criterion>
+    </acceptance>
+    <context>
+      <summary>Configuration parsing subsystem.</summary>
+    </context>
+    <records>
+      <record id="20260825T014000Z-rec-config-create" kind="discussion" status="informational" created_at="2026-08-25T01:40:00Z" actor="agent" operation_id="20260825T014000Z-taskadd-config">
+        <summary>Task created for companion configuration parser.</summary>
+      </record>
+    <record id="20260825T014000Z-taskadd-config-receipt" kind="discussion" status="informational" created_at="2026-08-25T01:40:00Z" actor="agent" operation_id="20260825T014000Z-taskadd-config"><index><summary>Task addition receipt.</summary><term key="request-sha256" value="06b75e8e72736b2e4bebbb40804600a991d090430846718bee7e191edac2736b" /></index><summary>Task addition receipt.</summary></record><record id="20260825T014300Z-rec-config-start" kind="discussion" status="informational" created_at="2026-08-25T01:43:00Z" actor="agent" operation_id="20260825T014300Z-update-start-config">
+      <summary>Starting task: Implementing lightweight C++20 JSON and INI companion configuration parser.</summary>
+    </record><record id="20260825T014400Z-rec-config-verify" kind="verification" status="informational" created_at="2026-08-25T01:44:00Z" actor="agent" operation_id="20260825T014400Z-update-verify-config">
+      <summary>Verified JSON and INI companion configuration parsing with automated test suite covering target paths, env_set, env_remove, cwd, desktop, and user context settings.</summary>
+    </record><record id="20260825T014430Z-rec-config-complete" kind="completion" status="informational" created_at="2026-08-25T01:44:30Z" actor="agent" operation_id="20260825T014430Z-update-complete-config">
+      <summary>Completed companion configuration parser: lightweight, dependency-free C++20 JSON and INI parsers support target executable, working directory, desktop station, environment mutations, and user credentials.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-config-parse-pass" relation="covers" />
+      </covers>
+    </record></records>
+  </task><task id="20260825-task-proxy-resolver" status="done" created_at="2026-08-25T01:40:30Z" updated_at="2026-08-25T01:46:30Z" started_at="2026-08-25T01:45:00Z" completed_at="2026-08-25T01:46:30Z">
+    <index>
+      <summary>Implement target resolution engine and PATH penetration.</summary>
+      <term key="task" value="20260825-task-proxy-resolver" />
+      <term key="status" value="done" />
+    </index>
+    <title>Implement target resolution engine and PATH penetration</title>
+    <objective>Implement target resolution logic supporting companion config files, DOGDOUCLIX_TARGET environment variable, and PATH penetration (searching subsequent PATH entries skipping current binary).</objective>
+    <rationale>Allow renamed shims to discover the authentic target program dynamically without hardcoded paths.</rationale>
+    <scope>
+      <repository path="src/">
+        <include path="include/dogdouclix/target_resolver.hpp" />
+        <include path="src/lib/target_resolver.cpp" />
+      </repository>
+    </scope>
+    <origin>
+      <ref scope="iteration" target="20260825-req-proxy-target-resolution" relation="implements" />
+    </origin>
+    <dependencies>
+      <ref scope="document" target="20260825-task-proxy-config" relation="depends-on" />
+    </dependencies>
+    <constraints />
+    <acceptance>
+      <criterion id="20260825-crit-resolver-pass" status="passed">Target executable is correctly resolved across config, env, and PATH penetration modes.</criterion>
+    </acceptance>
+    <context>
+      <summary>Target resolution subsystem.</summary>
+    </context>
+    <records>
+      <record id="20260825T014030Z-rec-resolver-create" kind="discussion" status="informational" created_at="2026-08-25T01:40:30Z" actor="agent" operation_id="20260825T014030Z-taskadd-resolver">
+        <summary>Task created for target resolver and PATH penetration.</summary>
+      </record>
+    <record id="20260825T014030Z-taskadd-resolver-receipt" kind="discussion" status="informational" created_at="2026-08-25T01:40:30Z" actor="agent" operation_id="20260825T014030Z-taskadd-resolver"><index><summary>Task addition receipt.</summary><term key="request-sha256" value="924b8a59d5b4d8d67776e07eb662c54e662a5dec0628cc14db0450f2a0fead8d" /></index><summary>Task addition receipt.</summary></record><record id="20260825T014500Z-rec-resolver-start" kind="discussion" status="informational" created_at="2026-08-25T01:45:00Z" actor="agent" operation_id="20260825T014500Z-update-start-resolver">
+      <summary>Starting task: Implementing TargetResolver with companion config discovery, DOGDOUCLIX_TARGET, and PATH penetration.</summary>
+    </record><record id="20260825T014600Z-rec-resolver-verify" kind="verification" status="informational" created_at="2026-08-25T01:46:00Z" actor="agent" operation_id="20260825T014600Z-update-verify-resolver">
+      <summary>Verified TargetResolver with companion config discovery, DOGDOUCLIX_TARGET, and PATH penetration skipping self directory with automated test suite.</summary>
+    </record><record id="20260825T014630Z-rec-resolver-complete" kind="completion" status="informational" created_at="2026-08-25T01:46:30Z" actor="agent" operation_id="20260825T014630Z-update-complete-resolver">
+      <summary>Completed TargetResolver: discovers companion configs, supports DOGDOUCLIX_TARGET, and accurately performs PATH penetration skipping own directory to avoid infinite self-recursion.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-resolver-pass" relation="covers" />
+      </covers>
+    </record></records>
+  </task><task id="20260825-task-proxy-forwarder" status="done" created_at="2026-08-25T01:41:00Z" updated_at="2026-08-25T01:48:30Z" started_at="2026-08-25T01:47:00Z" completed_at="2026-08-25T01:48:30Z">
+    <index>
+      <summary>Integrate transparent shim mode into forwarder and CLI entrypoint.</summary>
+      <term key="task" value="20260825-task-proxy-forwarder" />
+      <term key="status" value="done" />
+    </index>
+    <title>Integrate transparent shim mode into forwarder and CLI entrypoint</title>
+    <objective>Integrate auto-detection of explicit mode vs transparent shim mode in Forwarder and main.cpp, applying companion config and forwarding all tail arguments transparently.</objective>
+    <rationale>Enable unified binary to act as both explicit forwarder and transparent drop-in shim.</rationale>
+    <scope>
+      <repository path="src/">
+        <include path="include/dogdouclix/forwarder.hpp" />
+        <include path="src/lib/forwarder.cpp" />
+        <include path="src/cli/main.cpp" />
+      </repository>
+    </scope>
+    <origin>
+      <ref scope="iteration" target="20260825-req-proxy-transparent-dispatch" relation="implements" />
+    </origin>
+    <dependencies>
+      <ref scope="document" target="20260825-task-proxy-resolver" relation="depends-on" />
+    </dependencies>
+    <constraints />
+    <acceptance>
+      <criterion id="20260825-crit-fwd-transparent-pass" status="passed">Forwarder transparently executes target with arguments and config without caller awareness.</criterion>
+    </acceptance>
+    <context>
+      <summary>Forwarder integration subsystem.</summary>
+    </context>
+    <records>
+      <record id="20260825T014100Z-rec-fwd-create" kind="discussion" status="informational" created_at="2026-08-25T01:41:00Z" actor="agent" operation_id="20260825T014100Z-taskadd-fwd">
+        <summary>Task created for transparent forwarder integration.</summary>
+      </record>
+    <record id="20260825T014100Z-taskadd-fwd-receipt" kind="discussion" status="informational" created_at="2026-08-25T01:41:00Z" actor="agent" operation_id="20260825T014100Z-taskadd-fwd"><index><summary>Task addition receipt.</summary><term key="request-sha256" value="b4b142cf12f759e312938c2217be1a5e73c8373633bc0aeece4ee396a7918d05" /></index><summary>Task addition receipt.</summary></record><record id="20260825T014700Z-rec-fwd-start" kind="discussion" status="informational" created_at="2026-08-25T01:47:00Z" actor="agent" operation_id="20260825T014700Z-update-start-fwd">
+      <summary>Starting task: Integrating transparent shim mode into Forwarder and main CLI entrypoint.</summary>
+    </record><record id="20260825T014800Z-rec-fwd-verify" kind="verification" status="informational" created_at="2026-08-25T01:48:00Z" actor="agent" operation_id="20260825T014800Z-update-verify-fwd">
+      <summary>Verified transparent forwarder integration: automatic detection of transparent shim mode, companion config ingestion, and zero-caller-awareness tail argument forwarding.</summary>
+    </record><record id="20260825T014830Z-rec-fwd-complete" kind="completion" status="informational" created_at="2026-08-25T01:48:30Z" actor="agent" operation_id="20260825T014830Z-update-complete-fwd">
+      <summary>Completed transparent shim mode integration: forwarder automatically discerns explicit invocation vs drop-in shim, applies companion configuration rules, and passes all command-line arguments to the target transparently.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-fwd-transparent-pass" relation="covers" />
+      </covers>
+    </record></records>
+  </task><task id="20260825-task-proxy-tests" status="done" created_at="2026-08-25T01:41:30Z" updated_at="2026-08-25T01:50:30Z" started_at="2026-08-25T01:49:00Z" completed_at="2026-08-25T01:50:30Z">
+    <index>
+      <summary>Implement end-to-end test suite for transparent proxy and shim workflows.</summary>
+      <term key="task" value="20260825-task-proxy-tests" />
+      <term key="status" value="done" />
+    </index>
+    <title>Implement end-to-end test suite for transparent proxy and shim workflows</title>
+    <objective>Build automated test cases verifying companion JSON/INI config parsing, PATH penetration discovery, and transparent argument forwarding.</objective>
+    <rationale>Ensure regression prevention for transparent proxy capabilities.</rationale>
+    <scope>
+      <repository path="tests/">
+        <include path="tests/test_main.cpp" />
+      </repository>
+    </scope>
+    <origin>
+      <ref scope="iteration" target="20260825-req-proxy-transparent-dispatch" relation="implements" />
+    </origin>
+    <dependencies>
+      <ref scope="document" target="20260825-task-proxy-forwarder" relation="depends-on" />
+    </dependencies>
+    <constraints />
+    <acceptance>
+      <criterion id="20260825-crit-tests-proxy-all-pass" status="passed">All transparent proxy test cases pass with 100% success rate.</criterion>
+    </acceptance>
+    <context>
+      <summary>Testing subsystem.</summary>
+    </context>
+    <records>
+      <record id="20260825T014130Z-rec-tests-create" kind="discussion" status="informational" created_at="2026-08-25T01:41:30Z" actor="agent" operation_id="20260825T014130Z-taskadd-tests">
+        <summary>Task created for transparent proxy test suite.</summary>
+      </record>
+    <record id="20260825T014130Z-taskadd-tests-receipt" kind="discussion" status="informational" created_at="2026-08-25T01:41:30Z" actor="agent" operation_id="20260825T014130Z-taskadd-tests"><index><summary>Task addition receipt.</summary><term key="request-sha256" value="1eae2729e72ca2d7dd180175228cd88803afbf74c4b11cc4a7a41d97638a4e16" /></index><summary>Task addition receipt.</summary></record><record id="20260825T014900Z-rec-tests-start" kind="discussion" status="informational" created_at="2026-08-25T01:49:00Z" actor="agent" operation_id="20260825T014900Z-update-start-tests">
+      <summary>Starting task: Implementing comprehensive end-to-end test scenarios for transparent proxy and shim workflows.</summary>
+    </record><record id="20260825T015000Z-rec-tests-verify" kind="verification" status="informational" created_at="2026-08-25T01:50:00Z" actor="agent" operation_id="20260825T015000Z-update-verify-tests">
+      <summary>Verified all 14 integration test scenarios covering transparent drop-in shim execution, companion config file resolution, PATH penetration, and environment transformations.</summary>
+    </record><record id="20260825T015030Z-rec-tests-complete" kind="completion" status="informational" created_at="2026-08-25T01:50:30Z" actor="agent" operation_id="20260825T015030Z-update-complete-tests">
+      <summary>Completed end-to-end integration tests: comprehensive automated test suite covers all requirements and acceptance criteria for transparent proxy mode with 100% pass rate.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-tests-proxy-all-pass" relation="covers" />
+      </covers>
+    </record></records>
+  </task></tasks>

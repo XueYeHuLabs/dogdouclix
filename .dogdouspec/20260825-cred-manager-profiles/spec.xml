@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<iteration id="20260825-cred-manager-profiles" schema_version="1.0" revision="5" kind="feature" status="completed" created_at="2026-08-25T01:53:24Z" updated_at="2026-08-25T02:15:00Z" completed_at="2026-08-25T02:15:00Z">
+  <index>
+    <summary>Windows Credential Manager infrastructure for DogdouClix: CLI profile management and companion config integration for secure secret and credential protection.</summary>
+    <term key="kind" value="feature" />
+    <term key="iteration" value="20260825-cred-manager-profiles" />
+    <term key="status" value="completed" />
+  </index>
+  <product>
+        <objective>Implement Windows Credential Manager infrastructure for DogdouClix, providing CLI commands to create, read, update, list, and delete secure profiles in Windows Credential Manager, and supporting profile references in .clix.json and .clix.ini companion configurations to protect sensitive passwords and environment secrets.</objective>
+        <deliverables>
+          <deliverable id="20260825-deliv-cred-manager-core">
+            <index>
+              <summary>Windows Credential Manager C++20 subsystem supporting secure credential and secret storage, retrieval, and deletion.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Low-level Win32 Credential Manager abstraction library.</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-cred-manager-cli">
+            <index>
+              <summary>CLI profile management commands for creating, reading, listing, and deleting profiles.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>CLI interface for profile lifecycle management.</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-cred-config-integration">
+            <index>
+              <summary>Companion config and forwarder integration resolving profile names into context transformations.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Profile resolution engine for .clix.json and .clix.ini.</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-cred-tests">
+            <index>
+              <summary>Integration test suite for Credential Manager operations and profile resolution.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Automated test suite verifying credential security and execution.</description>
+          </deliverable>
+        </deliverables>
+        <scope>
+          <included>
+            <item>Win32 Credential Manager integration using CRED_TYPE_GENERIC and dogdouclix:profile: target prefix.</item>
+            <item>Profile payload data model: username, domain, password, and custom secret environment key-value pairs.</item>
+            <item>CLI commands: --clix-profile-set, --clix-profile-get, --clix-profile-delete, --clix-profile-list.</item>
+            <item>Configuration integration: profile field in JSON/INI companion files.</item>
+            <item>Automatic profile resolution and injection at launch time.</item>
+          </included>
+          <excluded>
+            <item>Third-party cloud secrets managers (HashiCorp Vault, AWS Secrets Manager).</item>
+            <item>Non-Windows platforms.</item>
+          </excluded>
+        </scope>
+        <requirements>
+          <requirement id="20260825-req-cred-storage" status="approved">
+            <index>
+              <summary>Win32 Credential Manager storage engine.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>dogdouclix must provide low-level Win32 Credential Manager APIs to create, read, update, list, and delete secure credential profiles using CRED_TYPE_GENERIC.</statement>
+            <rationale>Leverages the OS-level DPAPI-backed secure storage to protect credentials from plaintext file exposure.</rationale>
+          </requirement>
+          <requirement id="20260825-req-cred-cli-commands" status="approved">
+            <index>
+              <summary>CLI profile management interface.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>dogdouclix must provide CLI subcommands and flags to manage Credential Manager profiles interactively and via scriptable CLI parameters.</statement>
+            <rationale>Allows users, administrators, and setup scripts to register and maintain protected credentials.</rationale>
+          </requirement>
+          <requirement id="20260825-req-cred-config-reference" status="approved">
+            <index>
+              <summary>Profile reference in companion configurations.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>dogdouclix must support referencing Credential Manager profiles by name in .clix.json and .clix.ini configurations, automatically merging profile credentials and secrets into the execution context.</statement>
+            <rationale>Enables declarative configs without hardcoded passwords or secret tokens in version control or disk files.</rationale>
+          </requirement>
+        <requirement id="20260825-req-cred-separation" status="approved">
+    <index>
+      <summary>Architectural separation of OS credentials and file configuration.</summary>
+      <term key="kind" value="requirement" />
+    </index>
+    <statement>dogdouclix must enforce a clean architectural separation between OS authentication credentials (username, domain, password) managed via Windows Credential Manager and execution configuration (environment mutations, working directory, desktop) maintained in transparent, user-editable disk configuration files.</statement>
+    <rationale>Maintains semantic clarity for Credential Manager, provides file-based maintainability for operational rules, and protects OS account passwords without obscuring runtime environment configurations.</rationale>
+  <records><record id="20260825T021400Z-reqprop-cred-separation-receipt" kind="discussion" status="informational" created_at="2026-08-25T02:14:00Z" actor="agent"><index><summary>Requirement proposal receipt.</summary><term key="request-sha256" value="f85e9dbf0d61cccffaa0a30267e7b98f97d2d46dfc4bfbe9940fc65317b77ead" /></index><summary>Requirement proposal receipt. Operation 20260825T021400Z-reqprop-cred-separation.</summary></record></records></requirement></requirements>
+        <acceptance>
+          <criterion id="20260825-crit-cred-crud" decision="accepted">Credential profiles can be successfully created, read, updated, listed, and deleted in Windows Credential Manager.</criterion>
+          <criterion id="20260825-crit-cred-config-inject" decision="accepted">Referencing a profile in .clix.json or .clix.ini successfully injects the profile's user credentials and environment secrets into the target child process.</criterion>
+          <criterion id="20260825-crit-cred-security" decision="accepted">Sensitive secrets and passwords stored in Credential Manager are not leaked to configuration files or stdout.</criterion>
+        </acceptance>
+      </product>
+  <confirmations><confirmation id="20260825T015700Z-confirm-activate-cred" action="activate" decision="accepted" actor="owner" decided_at="2026-08-25T01:57:00Z"><summary>Owner confirmed activation of iteration 20260825-cred-manager-profiles: Windows Credential Manager profile infrastructure, CLI management commands, and companion config profile integration.</summary><requirements>
+    <requirement target="20260825-req-cred-storage" decision="approved" />
+    <requirement target="20260825-req-cred-cli-commands" decision="approved" />
+    <requirement target="20260825-req-cred-config-reference" decision="approved" />
+  </requirements></confirmation><confirmation id="20260825T021500Z-confirm-complete-cred" action="complete" decision="accepted" actor="owner" decided_at="2026-08-25T02:15:00Z"><summary>Owner confirmed requirement refinement and completion of iteration 20260825-cred-manager-profiles: Windows Credential Manager infrastructure strictly focused on OS account authentication credentials (username, domain, password), with transparent file configuration for execution rules and environment variables.</summary><requirements>
+    <requirement target="20260825-req-cred-separation" decision="approved" />
+  </requirements><acceptance>
+    <criterion target="20260825-crit-cred-crud" decision="accepted" />
+    <criterion target="20260825-crit-cred-config-inject" decision="accepted" />
+    <criterion target="20260825-crit-cred-security" decision="accepted" />
+  </acceptance></confirmation></confirmations>
+</iteration>

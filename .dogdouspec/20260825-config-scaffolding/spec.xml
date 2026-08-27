@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<iteration id="20260825-config-scaffolding" schema_version="1.0" revision="4" kind="feature" status="completed" created_at="2026-08-25T03:55:00Z" updated_at="2026-08-25T04:06:00Z" completed_at="2026-08-25T04:06:00Z">
+  <index>
+        <summary>Configuration scaffolding capabilities (--clix-init and --clix-template) for generating standard JSON and INI companion configuration templates.</summary>
+        <term key="kind" value="feature" />
+        <term key="iteration" value="20260825-config-scaffolding" />
+        <term key="status" value="completed" />
+      </index>
+  <product>
+        <objective>Provide scaffolding capabilities (--clix-init and --clix-template) in DogdouClix to quickly generate and output standard .clix.json and .clix.ini companion configuration templates with full schema structure, context defaults, and comments.</objective>
+        <deliverables>
+          <deliverable id="20260825-deliv-template-generators">
+            <index>
+              <summary>Core template generators for JSON and INI formats in ConfigParser.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>ConfigParser programmatic methods to generate valid JSON and INI configuration templates and write them to disk safely.</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-scaffold-cli">
+            <index>
+              <summary>CLI interface for --clix-init and --clix-template in Forwarder.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>CLI command handling in Forwarder to generate configuration files (--clix-init) or write templates directly to stdout (--clix-template).</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-scaffold-tests">
+            <index>
+              <summary>Unit and integration test coverage for template emission and CLI execution.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Automated test suite verifying template validity, file generation, roundtrip parsing, and CLI flag handling.</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-scaffold-docs">
+            <index>
+              <summary>User documentation and usage guides for scaffolding commands.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Documentation updates in USAGE_GUIDE.md, README.md, and help text.</description>
+          </deliverable>
+        </deliverables>
+        <scope>
+          <included>
+            <item>JSON configuration template generation with schema, target, cwd, desktop, user, env_set, and env_remove.</item>
+            <item>INI configuration template generation with structured sections and comments.</item>
+            <item>CLI flags --clix-init &lt;json|ini&gt; [output_filepath] and --clix-template &lt;json|ini&gt;.</item>
+            <item>Unit and integration tests for template generation, file writing, and parsing.</item>
+            <item>Documentation updates in USAGE_GUIDE.md, README.md, and help text.</item>
+          </included>
+          <excluded>
+            <item>Interactive wizard prompts for individual config fields.</item>
+          </excluded>
+        </scope>
+        <requirements>
+          <requirement id="20260825-req-template-generators" status="approved">
+            <index>
+              <summary>Core template generators in ConfigParser.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>ConfigParser must provide programmatic methods to generate valid JSON and INI configuration templates and write them to disk safely.</statement>
+            <rationale>Enables reliable generation of standard configuration templates across CLI and library consumers.</rationale>
+          </requirement>
+          <requirement id="20260825-req-scaffold-cli" status="approved">
+            <index>
+              <summary>CLI interface for --clix-init and --clix-template.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>dogdouclix CLI must support --clix-init to generate configuration files and --clix-template to output templates to stdout.</statement>
+            <rationale>Allows developers to quickly scaffold companion configuration files or pipe templates to scripts.</rationale>
+          </requirement>
+        </requirements>
+        <acceptance>
+          <criterion id="20260825-crit-template-validity" decision="accepted">Generated JSON and INI templates are syntactically valid and parse cleanly through ConfigParser.</criterion>
+          <criterion id="20260825-crit-scaffold-cli" decision="accepted">CLI commands --clix-init and --clix-template correctly emit templates to file or stdout.</criterion>
+        </acceptance>
+      </product>
+  <confirmations><confirmation id="20260825T035630Z-confirm-activate-scaffold" action="activate" decision="accepted" actor="owner" decided_at="2026-08-25T03:56:30Z"><summary>Owner confirmed activation of iteration 20260825-config-scaffolding: template generators, --clix-init and --clix-template CLI commands.</summary><requirements>
+    <requirement target="20260825-req-template-generators" decision="approved" />
+    <requirement target="20260825-req-scaffold-cli" decision="approved" />
+  </requirements></confirmation><confirmation id="20260825T040600Z-confirm-complete-scaffold" action="complete" decision="accepted" actor="owner" decided_at="2026-08-25T04:06:00Z"><summary>Owner confirmed completion of iteration 20260825-config-scaffolding: configuration scaffolding capabilities (--clix-init and --clix-template) implemented and verified.</summary><acceptance>
+    <criterion target="20260825-crit-template-validity" decision="accepted" />
+    <criterion target="20260825-crit-scaffold-cli" decision="accepted" />
+  </acceptance></confirmation></confirmations>
+</iteration>

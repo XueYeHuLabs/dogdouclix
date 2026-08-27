@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tasks id="20260825-tasks-cred-manager-profiles" iteration="20260825-cred-manager-profiles" schema_version="1.0" revision="17">
+  <index>
+    <summary>Tasks for iteration 20260825-cred-manager-profiles.</summary>
+    <term key="iteration" value="20260825-cred-manager-profiles" />
+  </index>
+<task id="20260825-task-cred-core" status="done" created_at="2026-08-25T01:55:00Z" updated_at="2026-08-25T01:59:30Z" started_at="2026-08-25T01:58:00Z" completed_at="2026-08-25T01:59:30Z">
+    <index>
+      <summary>Implement Windows Credential Manager storage engine.</summary>
+      <term key="task" value="20260825-task-cred-core" />
+      <term key="status" value="done" />
+    </index>
+    <title>Implement Windows Credential Manager storage engine</title>
+    <objective>Implement Win32 Credential Manager abstraction (cred_manager.hpp/cpp) supporting writing, reading, deleting, and enumerating dogdouclix profiles with credentials and environment secrets.</objective>
+    <rationale>Provide secure, DPAPI-encrypted storage backend for sensitive credentials and secrets.</rationale>
+    <scope>
+      <repository path="src/">
+        <include path="include/dogdouclix/cred_manager.hpp" />
+        <include path="src/lib/cred_manager.cpp" />
+        <include path="tests/test_main.cpp" />
+      </repository>
+    </scope>
+    <origin>
+      <ref scope="iteration" target="20260825-req-cred-storage" relation="implements" />
+    </origin>
+    <constraints />
+    <acceptance>
+      <criterion id="20260825-crit-cred-core-pass" status="passed">CredManager successfully writes, reads, enumerates, and deletes profiles via Win32 Credential Manager APIs.</criterion>
+    </acceptance>
+    <context>
+      <summary>Credential management engine.</summary>
+    </context>
+    <records>
+      <record id="20260825T015500Z-rec-cred-create" kind="discussion" status="informational" created_at="2026-08-25T01:55:00Z" actor="agent" operation_id="20260825T015500Z-taskadd-cred-core">
+        <summary>Task created for Credential Manager storage engine.</summary>
+      </record>
+    <record id="20260825T015500Z-taskadd-cred-core-receipt" kind="discussion" status="informational" created_at="2026-08-25T01:55:00Z" actor="agent" operation_id="20260825T015500Z-taskadd-cred-core"><index><summary>Task addition receipt.</summary><term key="request-sha256" value="356f52c089ccc84965be6cc88dd28cc2e3e34837c9a1847e09aeaf3bab58ebe3" /></index><summary>Task addition receipt.</summary></record><record id="20260825T015800Z-rec-cred-core-start" kind="discussion" status="informational" created_at="2026-08-25T01:58:00Z" actor="agent" operation_id="20260825T015800Z-update-start-cred-core">
+      <summary>Starting task: Implementing Windows Credential Manager storage engine.</summary>
+    </record><record id="20260825T015900Z-rec-cred-core-verify" kind="verification" status="informational" created_at="2026-08-25T01:59:00Z" actor="agent" operation_id="20260825T015900Z-update-verify-cred-core">
+      <summary>Verified Win32 Credential Manager storage engine (CredManager) with automated CRUD and profile payload roundtrip tests.</summary>
+    </record><record id="20260825T015930Z-rec-cred-core-complete" kind="completion" status="informational" created_at="2026-08-25T01:59:30Z" actor="agent" operation_id="20260825T015930Z-update-complete-cred-core">
+      <summary>Completed Windows Credential Manager storage engine: CredManager writes, reads, lists, and deletes secure profiles with DPAPI-backed encryption for user credentials and environment secrets.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-cred-core-pass" relation="covers" />
+      </covers>
+    </record></records>
+  </task><task id="20260825-task-cred-cli" status="done" created_at="2026-08-25T01:55:30Z" updated_at="2026-08-25T02:01:30Z" started_at="2026-08-25T02:00:00Z" completed_at="2026-08-25T02:01:30Z">
+    <index>
+      <summary>Implement CLI profile management commands.</summary>
+      <term key="task" value="20260825-task-cred-cli" />
+      <term key="status" value="done" />
+    </index>
+    <title>Implement CLI profile management commands</title>
+    <objective>Implement CLI commands (--clix-profile-set, --clix-profile-get, --clix-profile-delete, --clix-profile-list) for managing Credential Manager profiles from the terminal.</objective>
+    <rationale>Enable terminal and scriptable administration of secure profiles.</rationale>
+    <scope>
+      <repository path="src/">
+        <include path="src/cli/main.cpp" />
+        <include path="src/lib/forwarder.cpp" />
+      </repository>
+    </scope>
+    <origin>
+      <ref scope="iteration" target="20260825-req-cred-cli-commands" relation="implements" />
+    </origin>
+    <dependencies>
+      <ref scope="document" target="20260825-task-cred-core" relation="depends-on" />
+    </dependencies>
+    <constraints />
+    <acceptance>
+      <criterion id="20260825-crit-cred-cli-pass" status="passed">CLI profile management commands execute correctly and display clear status and error messages.</criterion>
+    </acceptance>
+    <context>
+      <summary>CLI profile management interface.</summary>
+    </context>
+    <records>
+      <record id="20260825T015530Z-rec-cred-cli-create" kind="discussion" status="informational" created_at="2026-08-25T01:55:30Z" actor="agent" operation_id="20260825T015530Z-taskadd-cred-cli">
+        <summary>Task created for CLI profile management.</summary>
+      </record>
+    <record id="20260825T015530Z-taskadd-cred-cli-receipt" kind="discussion" status="informational" created_at="2026-08-25T01:55:30Z" actor="agent" operation_id="20260825T015530Z-taskadd-cred-cli"><index><summary>Task addition receipt.</summary><term key="request-sha256" value="bf6d800f6931107dc278deed020e8b844b7bca590466306975dfd5bc7694eaeb" /></index><summary>Task addition receipt.</summary></record><record id="20260825T020000Z-rec-cred-cli-start" kind="discussion" status="informational" created_at="2026-08-25T02:00:00Z" actor="agent" operation_id="20260825T020000Z-update-start-cred-cli">
+      <summary>Starting task: Implementing CLI profile management commands (--clix-profile-set, --clix-profile-get, --clix-profile-delete, --clix-profile-list).</summary>
+    </record><record id="20260825T020100Z-rec-cred-cli-verify" kind="verification" status="informational" created_at="2026-08-25T02:01:00Z" actor="agent" operation_id="20260825T020100Z-update-verify-cred-cli">
+      <summary>Verified CLI profile management commands (--clix-profile-set, --clix-profile-get, --clix-profile-delete, --clix-profile-list) interactively and via automated tests.</summary>
+    </record><record id="20260825T020130Z-rec-cred-cli-complete" kind="completion" status="informational" created_at="2026-08-25T02:01:30Z" actor="agent" operation_id="20260825T020130Z-update-complete-cred-cli">
+      <summary>Completed CLI profile management interface: commands provide terminal-based administration for Windows Credential Manager profiles, displaying protected credentials cleanly.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-cred-cli-pass" relation="covers" />
+      </covers>
+    </record></records>
+  </task><task id="20260825-task-cred-config" status="done" created_at="2026-08-25T01:56:00Z" updated_at="2026-08-25T02:03:30Z" started_at="2026-08-25T02:02:00Z" completed_at="2026-08-25T02:03:30Z">
+    <index>
+      <summary>Integrate profile resolution into companion configuration and forwarder.</summary>
+      <term key="task" value="20260825-task-cred-config" />
+      <term key="status" value="done" />
+    </index>
+    <title>Integrate profile resolution into companion configuration and forwarder</title>
+    <objective>Integrate profile referencing in .clix.json and .clix.ini, automatically resolving profile credentials and secret environment variables at launch time.</objective>
+    <rationale>Enable configuration files to omit plaintext secrets by referencing secure OS-managed profiles.</rationale>
+    <scope>
+      <repository path="src/">
+        <include path="include/dogdouclix/config_parser.hpp" />
+        <include path="src/lib/config_parser.cpp" />
+        <include path="src/lib/forwarder.cpp" />
+      </repository>
+    </scope>
+    <origin>
+      <ref scope="iteration" target="20260825-req-cred-config-reference" relation="implements" />
+    </origin>
+    <dependencies>
+      <ref scope="document" target="20260825-task-cred-cli" relation="depends-on" />
+    </dependencies>
+    <constraints />
+    <acceptance>
+      <criterion id="20260825-crit-cred-config-pass" status="passed">Companion configurations referencing profiles seamlessly merge credentials and secrets into process execution.</criterion>
+    </acceptance>
+    <context>
+      <summary>Configuration profile integration subsystem.</summary>
+    </context>
+    <records>
+      <record id="20260825T015600Z-rec-cred-config-create" kind="discussion" status="informational" created_at="2026-08-25T01:56:00Z" actor="agent" operation_id="20260825T015600Z-taskadd-cred-config">
+        <summary>Task created for config profile integration.</summary>
+      </record>
+    <record id="20260825T015600Z-taskadd-cred-config-receipt" kind="discussion" status="informational" created_at="2026-08-25T01:56:00Z" actor="agent" operation_id="20260825T015600Z-taskadd-cred-config"><index><summary>Task addition receipt.</summary><term key="request-sha256" value="c899543aa53f2a11833d25eb3d04adec84a5d2353f7701d950f66b5a7a19abac" /></index><summary>Task addition receipt.</summary></record><record id="20260825T020200Z-rec-cred-cfg-start" kind="discussion" status="informational" created_at="2026-08-25T02:02:00Z" actor="agent" operation_id="20260825T020200Z-update-start-cred-cfg">
+      <summary>Starting task: Integrating profile referencing in .clix.json and .clix.ini companion configurations.</summary>
+    </record><record id="20260825T020300Z-rec-cred-cfg-verify" kind="verification" status="informational" created_at="2026-08-25T02:03:00Z" actor="agent" operation_id="20260825T020300Z-update-verify-cred-cfg">
+      <summary>Verified companion configuration profile reference integration for .clix.json and .clix.ini with automatic Credential Manager resolution.</summary>
+    </record><record id="20260825T020330Z-rec-cred-cfg-complete" kind="completion" status="informational" created_at="2026-08-25T02:03:30Z" actor="agent" operation_id="20260825T020330Z-update-complete-cred-cfg">
+      <summary>Completed companion config profile integration: .clix.json and .clix.ini can reference named profiles, automatically loading and injecting DPAPI-protected credentials and secrets at execution time.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-cred-config-pass" relation="covers" />
+      </covers>
+    </record></records>
+  </task><task id="20260825-task-cred-tests" status="done" created_at="2026-08-25T01:56:30Z" updated_at="2026-08-25T02:05:30Z" started_at="2026-08-25T02:04:00Z" completed_at="2026-08-25T02:05:30Z">
+    <index>
+      <summary>Implement end-to-end integration test suite for Credential Manager profiles.</summary>
+      <term key="task" value="20260825-task-cred-tests" />
+      <term key="status" value="done" />
+    </index>
+    <title>Implement end-to-end integration test suite for Credential Manager profiles</title>
+    <objective>Build automated test cases verifying Windows Credential Manager profile CRUD, config resolution, and subprocess secret injection.</objective>
+    <rationale>Ensure security, reliability, and regression prevention for credential management features.</rationale>
+    <scope>
+      <repository path="tests/">
+        <include path="tests/test_main.cpp" />
+      </repository>
+    </scope>
+    <origin>
+      <ref scope="iteration" target="20260825-req-cred-config-reference" relation="implements" />
+    </origin>
+    <dependencies>
+      <ref scope="document" target="20260825-task-cred-config" relation="depends-on" />
+    </dependencies>
+    <constraints />
+    <acceptance>
+      <criterion id="20260825-crit-tests-cred-all-pass" status="passed">All Credential Manager profile test cases pass with 100% success rate.</criterion>
+    </acceptance>
+    <context>
+      <summary>Credential testing subsystem.</summary>
+    </context>
+    <records>
+      <record id="20260825T015630Z-rec-cred-tests-create" kind="discussion" status="informational" created_at="2026-08-25T01:56:30Z" actor="agent" operation_id="20260825T015630Z-taskadd-cred-tests">
+        <summary>Task created for Credential Manager integration tests.</summary>
+      </record>
+    <record id="20260825T015630Z-taskadd-cred-tests-receipt" kind="discussion" status="informational" created_at="2026-08-25T01:56:30Z" actor="agent" operation_id="20260825T015630Z-taskadd-cred-tests"><index><summary>Task addition receipt.</summary><term key="request-sha256" value="787f806d86b73ba0cb80c8405cfad148a5125657d965cba67400393f2266f585" /></index><summary>Task addition receipt.</summary></record><record id="20260825T020400Z-rec-cred-tests-start" kind="discussion" status="informational" created_at="2026-08-25T02:04:00Z" actor="agent" operation_id="20260825T020400Z-update-start-cred-tests">
+      <summary>Starting task: Implementing end-to-end integration tests for Credential Manager profiles, companion configs, and process execution.</summary>
+    </record><record id="20260825T020500Z-rec-cred-tests-verify" kind="verification" status="informational" created_at="2026-08-25T02:05:00Z" actor="agent" operation_id="20260825T020500Z-update-verify-cred-tests">
+      <summary>Verified complete integration test suite: tested full lifecycle of Credential Manager profile creation, companion config resolution, and subprocess execution with 100% test pass rate.</summary>
+    </record><record id="20260825T020530Z-rec-cred-tests-complete" kind="completion" status="informational" created_at="2026-08-25T02:05:30Z" actor="agent" operation_id="20260825T020530Z-update-complete-cred-tests">
+      <summary>Completed Credential Manager test suite: end-to-end automated tests pass with 100% success rate across profile storage, JSON/INI companion parsing, and subprocess execution.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-tests-cred-all-pass" relation="covers" />
+      </covers>
+    </record></records>
+  </task></tasks>

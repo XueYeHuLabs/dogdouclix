@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tasks id="20260825-tasks-config-scaffolding" iteration="20260825-config-scaffolding" schema_version="1.0" revision="14">
+  <index>
+    <summary>Tasks for iteration 20260825-config-scaffolding.</summary>
+    <term key="iteration" value="20260825-config-scaffolding" />
+  </index>
+<task id="20260825-task-template-generators" status="done" created_at="2026-08-25T03:57:00Z" updated_at="2026-08-25T03:59:30Z" started_at="2026-08-25T03:58:00Z" completed_at="2026-08-25T03:59:30Z">
+        <index>
+          <summary>Implement JSON and INI template generators and file writer in ConfigParser.</summary>
+          <term key="task" value="20260825-task-template-generators" />
+          <term key="status" value="done" />
+        </index>
+        <title>Implement JSON and INI template generators and file writer in ConfigParser</title>
+        <objective>Add GenerateTemplateJson, GenerateTemplateIni, and WriteTemplateFile methods to ConfigParser.</objective>
+        <rationale>Provide core reusable scaffolding engine for companion configuration files.</rationale>
+        <scope>
+          <repository path="src/">
+            <include path="include/dogdouclix/config_parser.hpp" />
+            <include path="src/lib/config_parser.cpp" />
+          </repository>
+        </scope>
+        <origin>
+          <ref scope="iteration" target="20260825-req-template-generators" relation="implements" />
+        </origin>
+        <constraints />
+        <acceptance>
+          <criterion id="20260825-crit-template-pass" status="passed">Generated JSON and INI templates are syntactically valid and parse cleanly with ConfigParser::ParseJson and ConfigParser::ParseIni.</criterion>
+        </acceptance>
+        <context>
+          <summary>Core template generation and serialization subsystem.</summary>
+        </context>
+        <records>
+          <record id="20260825T035700Z-rec-template-gen-create" kind="discussion" status="informational" created_at="2026-08-25T03:57:00Z" actor="agent">
+            <summary>Task created for core template generators in ConfigParser.</summary>
+          </record>
+        <record id="20260825T035800Z-rec-template-gen-start" kind="discussion" status="informational" created_at="2026-08-25T03:58:00Z" actor="agent" operation_id="20260825T035800Z-update-start-template-gen">
+      <summary>Starting task: Implement JSON and INI template generators and file writer in ConfigParser.</summary>
+    </record><record id="20260825T035900Z-rec-template-gen-verify" kind="verification" status="informational" created_at="2026-08-25T03:59:00Z" actor="agent" operation_id="20260825T035900Z-update-verify-template-gen">
+      <summary>Verified GenerateTemplateJson, GenerateTemplateIni, and WriteTemplateFile methods in ConfigParser.</summary>
+    </record><record id="20260825T035930Z-rec-template-gen-complete" kind="completion" status="informational" created_at="2026-08-25T03:59:30Z" actor="agent" operation_id="20260825T035930Z-update-complete-template-gen">
+      <summary>Completed core template generators: ConfigParser provides GenerateTemplateJson, GenerateTemplateIni, and WriteTemplateFile.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-template-pass" relation="covers" />
+      </covers>
+    </record></records>
+      </task><task id="20260825-task-scaffold-cli" status="done" created_at="2026-08-25T03:57:00Z" updated_at="2026-08-25T04:01:30Z" started_at="2026-08-25T04:00:00Z" completed_at="2026-08-25T04:01:30Z">
+        <index>
+          <summary>Implement CLI commands --clix-init and --clix-template in Forwarder.</summary>
+          <term key="task" value="20260825-task-scaffold-cli" />
+          <term key="status" value="done" />
+        </index>
+        <title>Implement CLI commands --clix-init and --clix-template in Forwarder</title>
+        <objective>Add CLI command parsing and execution for --clix-init and --clix-template in Forwarder.</objective>
+        <rationale>Enable CLI users to quickly scaffold companion configuration files or pipe templates to stdout.</rationale>
+        <scope>
+          <repository path="src/">
+            <include path="include/dogdouclix/forwarder.hpp" />
+            <include path="src/lib/forwarder.cpp" />
+            <include path="src/cli/main.cpp" />
+          </repository>
+        </scope>
+        <origin>
+          <ref scope="iteration" target="20260825-req-scaffold-cli" relation="implements" />
+        </origin>
+        <dependencies>
+          <ref scope="document" target="20260825-task-template-generators" relation="depends-on" />
+        </dependencies>
+        <constraints />
+        <acceptance>
+          <criterion id="20260825-crit-cli-scaffold-pass" status="passed">CLI supports --clix-init &lt;json|ini&gt; [filepath] and --clix-template &lt;json|ini&gt; with proper error handling and help text.</criterion>
+        </acceptance>
+        <context>
+          <summary>CLI command line handler for scaffolding.</summary>
+        </context>
+        <records>
+          <record id="20260825T035700Z-rec-cli-scaffold-create" kind="discussion" status="informational" created_at="2026-08-25T03:57:00Z" actor="agent">
+            <summary>Task created for CLI scaffolding commands.</summary>
+          </record>
+        <record id="20260825T040000Z-rec-scaffold-cli-start" kind="discussion" status="informational" created_at="2026-08-25T04:00:00Z" actor="agent" operation_id="20260825T040000Z-update-start-scaffold-cli">
+      <summary>Starting task: Implement CLI commands --clix-init and --clix-template in Forwarder.</summary>
+    </record><record id="20260825T040100Z-rec-scaffold-cli-verify" kind="verification" status="informational" created_at="2026-08-25T04:01:00Z" actor="agent" operation_id="20260825T040100Z-update-verify-scaffold-cli">
+      <summary>Verified CLI scaffolding commands --clix-init and --clix-template in Forwarder.</summary>
+    </record><record id="20260825T040130Z-rec-scaffold-cli-complete" kind="completion" status="informational" created_at="2026-08-25T04:01:30Z" actor="agent" operation_id="20260825T040130Z-update-complete-scaffold-cli">
+      <summary>Completed CLI scaffolding commands: --clix-init and --clix-template are fully supported with format validation and custom output path handling.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-cli-scaffold-pass" relation="covers" />
+      </covers>
+    </record></records>
+      </task><task id="20260825-task-scaffold-tests" status="done" created_at="2026-08-25T03:57:00Z" updated_at="2026-08-25T04:03:30Z" started_at="2026-08-25T04:02:00Z" completed_at="2026-08-25T04:03:30Z">
+        <index>
+          <summary>Implement automated tests for template generation, roundtrip parsing, and CLI flag handling.</summary>
+          <term key="task" value="20260825-task-scaffold-tests" />
+          <term key="status" value="done" />
+        </index>
+        <title>Implement automated tests for template generation, roundtrip parsing, and CLI flag handling</title>
+        <objective>Add comprehensive unit and regression tests in tests/test_main.cpp.</objective>
+        <rationale>Ensure stability and correctness of scaffolding functionality.</rationale>
+        <scope>
+          <repository path="tests/">
+            <include path="tests/test_main.cpp" />
+          </repository>
+        </scope>
+        <origin>
+          <ref scope="iteration" target="20260825-req-template-generators" relation="implements" />
+        </origin>
+        <dependencies>
+          <ref scope="document" target="20260825-task-scaffold-cli" relation="depends-on" />
+        </dependencies>
+        <constraints />
+        <acceptance>
+          <criterion id="20260825-crit-scaffold-tests-pass" status="passed">All automated scaffolding test cases pass with 100% success rate.</criterion>
+        </acceptance>
+        <context>
+          <summary>Scaffolding test suite.</summary>
+        </context>
+        <records>
+          <record id="20260825T035700Z-rec-scaffold-tests-create" kind="discussion" status="informational" created_at="2026-08-25T03:57:00Z" actor="agent">
+            <summary>Task created for scaffolding test suite.</summary>
+          </record>
+        <record id="20260825T040200Z-rec-scaffold-tests-start" kind="discussion" status="informational" created_at="2026-08-25T04:02:00Z" actor="agent" operation_id="20260825T040200Z-update-start-scaffold-tests">
+      <summary>Starting task: Implement automated tests for template generation, roundtrip parsing, and CLI flag handling.</summary>
+    </record><record id="20260825T040300Z-rec-scaffold-tests-verify" kind="verification" status="informational" created_at="2026-08-25T04:03:00Z" actor="agent" operation_id="20260825T040300Z-update-verify-scaffold-tests">
+      <summary>Verified complete test suite for template generation, roundtrip parsing, and CLI flag handling with 100% pass rate.</summary>
+    </record><record id="20260825T040330Z-rec-scaffold-tests-complete" kind="completion" status="informational" created_at="2026-08-25T04:03:30Z" actor="agent" operation_id="20260825T040330Z-update-complete-scaffold-tests">
+      <summary>Completed scaffolding test suite: automated unit and regression tests pass with 100% success rate across template generation, file writing, roundtrip parsing, and CLI flag handling.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-scaffold-tests-pass" relation="covers" />
+      </covers>
+    </record></records>
+      </task><task id="20260825-task-scaffold-docs" status="done" created_at="2026-08-25T03:57:00Z" updated_at="2026-08-25T04:05:30Z" started_at="2026-08-25T04:04:00Z" completed_at="2026-08-25T04:05:30Z">
+        <index>
+          <summary>Update USAGE_GUIDE.md and README.md with scaffolding documentation.</summary>
+          <term key="task" value="20260825-task-scaffold-docs" />
+          <term key="status" value="done" />
+        </index>
+        <title>Update USAGE_GUIDE.md and README.md with scaffolding documentation</title>
+        <objective>Synchronize user documentation and guides with the newly implemented scaffolding commands.</objective>
+        <rationale>Ensure developer documentation matches the implementation.</rationale>
+        <scope>
+          <repository path="documents/">
+            <include path="documents/USAGE_GUIDE.md" />
+            <include path="README.md" />
+          </repository>
+        </scope>
+        <origin>
+          <ref scope="iteration" target="20260825-req-scaffold-cli" relation="implements" />
+        </origin>
+        <dependencies>
+          <ref scope="document" target="20260825-task-scaffold-tests" relation="depends-on" />
+        </dependencies>
+        <constraints />
+        <acceptance>
+          <criterion id="20260825-crit-docs-sync-pass" status="passed">Documentation is synchronized with the new CLI commands and examples.</criterion>
+        </acceptance>
+        <context>
+          <summary>Documentation synchronization subsystem.</summary>
+        </context>
+        <records>
+          <record id="20260825T035700Z-rec-scaffold-docs-create" kind="discussion" status="informational" created_at="2026-08-25T03:57:00Z" actor="agent">
+            <summary>Task created for documentation updates.</summary>
+          </record>
+        <record id="20260825T040400Z-rec-scaffold-docs-start" kind="discussion" status="informational" created_at="2026-08-25T04:04:00Z" actor="agent" operation_id="20260825T040400Z-update-start-scaffold-docs">
+      <summary>Starting task: Update USAGE_GUIDE.md and README.md with scaffolding documentation.</summary>
+    </record><record id="20260825T040500Z-rec-scaffold-docs-verify" kind="verification" status="informational" created_at="2026-08-25T04:05:00Z" actor="agent" operation_id="20260825T040500Z-update-verify-scaffold-docs">
+      <summary>Verified documentation updates in USAGE_GUIDE.md and CLI help output.</summary>
+    </record><record id="20260825T040530Z-rec-scaffold-docs-complete" kind="completion" status="informational" created_at="2026-08-25T04:05:30Z" actor="agent" operation_id="20260825T040530Z-update-complete-scaffold-docs">
+      <summary>Completed documentation synchronization: USAGE_GUIDE.md documents --clix-init and --clix-template with tables and real-world PowerShell examples.</summary>
+      <covers>
+        <ref scope="document" target="20260825-crit-docs-sync-pass" relation="covers" />
+      </covers>
+    </record></records>
+      </task></tasks>

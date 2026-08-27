@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<iteration id="20260825-cli-forwarding" schema_version="1.0" revision="6" kind="feature" status="completed" created_at="2026-08-25T01:14:09Z" updated_at="2026-08-25T01:38:00Z" completed_at="2026-08-25T01:38:00Z">
+  <index>
+    <summary>Core CLI forwarding and execution interception engine (dogdouclix.exe) on Windows with argument pass-through, full I/O stream streaming, WinStation/Desktop session inheritance, exit code fidelity, and context transformations.</summary>
+    <term key="kind" value="feature" />
+    <term key="iteration" value="20260825-cli-forwarding" />
+    <term key="status" value="completed" />
+  </index>
+  <product>
+        <objective>Build the core CLI forwarding and execution interception engine (dogdouclix.exe) on Windows, providing transparent argument pass-through, full I/O standard stream streaming, WinStation/Desktop session inheritance, exit code fidelity, and configurable context transformations (environment variable mutation and user context switching) for credential protection and profile sharing.</objective>
+        <deliverables>
+          <deliverable id="20260825-deliv-forwarder-core">
+            <index>
+              <summary>Windows CLI forwarding executable (dogdouclix.exe) capable of spawning target binaries with verbatim arguments, inherited I/O streams, and exit code propagation.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Core CLI forwarding binary and process execution engine.</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-context-transformer">
+            <index>
+              <summary>Context transformation engine supporting environment variable insertion, modification, and redaction, as well as execution under specified user security contexts.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Context transformation subsystem for environment variable mutations and user context management.</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-forwarder-tests">
+            <index>
+              <summary>Automated test suite verifying argument escaping fidelity, standard stream pass-through, exit code return, environment modifications, and signal/cancellation handling.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Test harness and automated integration tests.</description>
+          </deliverable>
+        </deliverables>
+        <scope>
+          <included>
+            <item>CLI invocation forwarding: transparent wrapper dispatching target binary.</item>
+            <item>Command-line argument pass-through preserving verbatim quotes and escapes.</item>
+            <item>Standard stream (stdin, stdout, stderr) bidirectional streaming with binary and text fidelity.</item>
+            <item>WinStation and Desktop station inheritance (lpDesktop / Win32 process creation).</item>
+            <item>Target process exit code propagation and signal / Ctrl+C handling.</item>
+            <item>Context transformations: environment variable injection, override, and removal.</item>
+            <item>User security context transition mechanisms.</item>
+          </included>
+          <excluded>
+            <item>GUI process virtualization or window wrapping.</item>
+            <item>Non-Windows platform forwarding (Windows-only in Phase 1).</item>
+            <item>Network proxying or remote daemon execution.</item>
+          </excluded>
+        </scope>
+        <requirements>
+          <requirement id="20260825-req-cmdline-passthrough" status="approved">
+            <index>
+              <summary>Transparent command-line argument pass-through.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>clix must transparently forward all command-line arguments to the target executable without altering argument escaping, whitespace, or quoting.</statement>
+            <rationale>Callers expect identical CLI behavior as if invoking the target binary directly.</rationale>
+          </requirement>
+          <requirement id="20260825-req-io-stream-passthrough" status="approved">
+            <index>
+              <summary>Real-time standard I/O stream pass-through.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>clix must stream stdin, stdout, and stderr between caller and target process in real time with high fidelity and zero unwanted buffering.</statement>
+            <rationale>Interactive CLI tools and piped pipelines rely on immediate stream transmission and preserved binary streams.</rationale>
+          </requirement>
+          <requirement id="20260825-req-session-desktop-inheritance" status="approved">
+            <index>
+              <summary>WinStation and Desktop session inheritance.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>clix must inherit or forward Windows station, desktop (lpDesktop), and console session properties to the child process.</statement>
+            <rationale>Console applications require accurate console handles and window station contexts to function properly.</rationale>
+          </requirement>
+          <requirement id="20260825-req-exitcode-signal-propagation" status="approved">
+            <index>
+              <summary>Exit code fidelity and signal propagation.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>clix must return the exact exit code of the target child process and properly propagate termination signals (Ctrl+C, Ctrl+Break).</statement>
+            <rationale>Automation scripts, CI pipelines, and parent shells depend on accurate process exit codes and signal handling.</rationale>
+          </requirement>
+          <requirement id="20260825-req-context-transformation" status="approved">
+            <index>
+              <summary>Environment and user context transformation.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>clix must allow injecting, overriding, or redacting environment variables and executing under configured user security contexts before launching the child process.</statement>
+            <rationale>Enables secret protection (temporary secret injection without polluting parent caller environment) and cross-user profile sharing.</rationale>
+          </requirement>
+        </requirements>
+        <acceptance>
+          <criterion id="20260825-crit-arg-fidelity" decision="accepted">Target binary receives identical command-line arguments (including special characters, spaces, and quotes) as passed to clix.</criterion>
+          <criterion id="20260825-crit-stream-fidelity" decision="accepted">Stdin, stdout, and stderr are streamed concurrently in real time, and pipeline redirection works transparently.</criterion>
+          <criterion id="20260825-crit-exitcode-propagation" decision="accepted">The exit code returned by clix matches the child process exit code across all termination cases (0, non-zero, crash).</criterion>
+          <criterion id="20260825-crit-env-mutation" decision="accepted">Configured environment variables are successfully inserted, modified, or removed in the child process without leaking into caller process environment.</criterion>
+          <criterion id="20260825-crit-user-context" decision="accepted">Process creation supports launching under alternate user security tokens/contexts where requested.</criterion>
+        </acceptance>
+      </product>
+  <confirmations><confirmation id="20260825T012100Z-confirm-activate" action="activate" decision="accepted" actor="owner" decided_at="2026-08-25T01:21:00Z"><summary>Owner instructed starting development for iteration 20260825-cli-forwarding (CLI forwarding, handle and stream pass-through, WinStation/Desktop inheritance, context transformations).</summary><requirements>
+    <requirement target="20260825-req-cmdline-passthrough" decision="approved" />
+    <requirement target="20260825-req-io-stream-passthrough" decision="approved" />
+    <requirement target="20260825-req-session-desktop-inheritance" decision="approved" />
+    <requirement target="20260825-req-exitcode-signal-propagation" decision="approved" />
+    <requirement target="20260825-req-context-transformation" decision="approved" />
+  </requirements></confirmation><confirmation id="20260825T013800Z-confirm-complete-phase1" action="complete" decision="accepted" actor="owner" decided_at="2026-08-25T01:38:00Z"><summary>Owner confirmed completion of iteration 20260825-cli-forwarding: CLI forwarding engine, stream pass-through, and context transformations successfully implemented and verified.</summary><acceptance>
+    <criterion target="20260825-crit-arg-fidelity" decision="accepted" />
+    <criterion target="20260825-crit-stream-fidelity" decision="accepted" />
+    <criterion target="20260825-crit-exitcode-propagation" decision="accepted" />
+    <criterion target="20260825-crit-env-mutation" decision="accepted" />
+    <criterion target="20260825-crit-user-context" decision="accepted" />
+  </acceptance></confirmation></confirmations>
+</iteration>

@@ -208,7 +208,8 @@ When DogdouClix is renamed to a target binary (e.g., `kubectl.exe`) without an e
 
 > [!IMPORTANT]
 > **Handle Inheritance & Stream Transparency**
-> DogdouClix uses Win32 `STARTUPINFOEXW` with `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`. Only valid standard I/O handles (`stdin`, `stdout`, `stderr`) are marked inheritable and passed to the child. Unrelated parent handles are blocked, preventing handle leakage and deadlocks in redirected pipelines.
+> - **Same-User Execution**: DogdouClix uses Win32 `STARTUPINFOEXW` with `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`. Only valid standard I/O handles (`stdin`, `stdout`, `stderr`) are marked inheritable and passed to the child. Unrelated parent handles and raw console driver handles (`\Device\ConDrv`) are excluded, preventing handle leaks, pipeline deadlocks, and Win32 parameter validation errors.
+> - **Cross-User Execution (`CreateProcessWithLogonW`)**: Inter-session anonymous pipe bridges are dynamically established for `stdin`, `stdout`, and `stderr`, streaming child output directly back to the caller terminal with multi-stage Unicode/OEM encoding translation and asynchronous input forwarding.
 
 > [!NOTE]
 > **Console Signal Delegation**

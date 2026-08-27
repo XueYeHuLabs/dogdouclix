@@ -201,6 +201,29 @@ static void PumpStream(HANDLE HSourcePipe, HANDLE HTargetDest) {
   }
 }
 
+static void PumpInputStream(HANDLE HSourceStdin, HANDLE HTargetPipe, std::atomic<bool>* StopSignal) {
+  if (HSourceStdin == nullptr || HSourceStdin == INVALID_HANDLE_VALUE ||
+      HTargetPipe == nullptr || HTargetPipe == INVALID_HANDLE_VALUE) {
+    return;
+  }
+
+  char buffer[4096];
+  DWORD bytesread = 0;
+  DWORD byteswritten = 0;
+
+  while (StopSignal != nullptr && !StopSignal->load(std::memory_order_acquire)) {
+    if (::ReadFile(HSourceStdin, buffer, sizeof(buffer), &bytesread, nullptr) && bytesread > 0) {
+      if (!::WriteFile(HTargetPipe, buffer, bytesread, &byteswritten, nullptr)) {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+
+  ::CloseHandle(HTargetPipe);
+}
+
 } // namespace
 
 FORWARDING_RESULT ProcessLauncher::LaunchAndForward(const LAUNCH_CONFIG& Config) {
@@ -308,21 +331,32 @@ FORWARDING_RESULT ProcessLauncher::LaunchAndForward(const LAUNCH_CONFIG& Config)
     if (hpipeoutwrite != nullptr) ::CloseHandle(hpipeoutwrite);
     if (hpipeerrwrite != nullptr) ::CloseHandle(hpipeerrwrite);
     if (hpipeinread != nullptr) ::CloseHandle(hpipeinread);
-    if (hpipeinwrite != nullptr) ::CloseHandle(hpipeinwrite);
+    // Note: hpipeinwrite handle ownership is transferred to asynchronous stdinpump thread
 
     if (!created) {
       creationerror = ::GetLastError();
       if (hpipeoutread != nullptr) ::CloseHandle(hpipeoutread);
       if (hpipeerrread != nullptr) ::CloseHandle(hpipeerrread);
+      if (hpipeinwrite != nullptr) ::CloseHandle(hpipeinwrite);
     } else {
       _ChildProcessHandle.store(pi.hProcess, std::memory_order_release);
       ::SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE);
+
+      // Start asynchronous stdin stream pump
+      std::atomic<bool> stopinput{false};
+      std::thread stdinpump(PumpInputStream, hstdin, hpipeinwrite, &stopinput);
 
       // Start asynchronous I/O pump threads with smart Unicode / OEM encoding translation
       std::thread stdoutpump(PumpStream, hpipeoutread, hstdout);
       std::thread stderrpump(PumpStream, hpipeerrread, hstderr);
 
       ::WaitForSingleObject(pi.hProcess, INFINITE);
+
+      stopinput.store(true, std::memory_order_release);
+      if (stdinpump.joinable()) {
+        ::CancelSynchronousIo(stdinpump.native_handle());
+        stdinpump.join();
+      }
 
       if (stdoutpump.joinable()) stdoutpump.join();
       if (stderrpump.joinable()) stderrpump.join();
@@ -361,20 +395,20 @@ FORWARDING_RESULT ProcessLauncher::LaunchAndForward(const LAUNCH_CONFIG& Config)
     );
 
     if (!created) {
-      STARTUPINFOEXW siex{};
-      siex.StartupInfo.cb = sizeof(STARTUPINFOEXW);
+      STARTUPINFOW siuser{};
+      siuser.cb = sizeof(STARTUPINFOW);
       if (Config.DirectHandleInheritance) {
-        siex.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
-        siex.StartupInfo.hStdInput = hstdin;
-        siex.StartupInfo.hStdOutput = hstdout;
-        siex.StartupInfo.hStdError = hstderr;
+        siuser.dwFlags |= STARTF_USESTDHANDLES;
+        siuser.hStdInput = hstdin;
+        siuser.hStdOutput = hstdout;
+        siuser.hStdError = hstderr;
       }
       if (!desktopstr.empty()) {
-        siex.StartupInfo.lpDesktop = desktopstr.data();
+        siuser.lpDesktop = desktopstr.data();
       }
 
       BOOL inherithandles = Config.DirectHandleInheritance ? TRUE : FALSE;
-      DWORD asuserflags = CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT;
+      DWORD asuserflags = CREATE_UNICODE_ENVIRONMENT;
       created = ::CreateProcessAsUserW(
         Config.UserToken,
         nullptr,
@@ -385,7 +419,7 @@ FORWARDING_RESULT ProcessLauncher::LaunchAndForward(const LAUNCH_CONFIG& Config)
         asuserflags,
         envblock,
         workdir,
-        &siex.StartupInfo,
+        &siuser,
         &pi
       );
       if (!created) {

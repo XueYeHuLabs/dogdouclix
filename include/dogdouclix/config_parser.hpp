@@ -12,7 +12,6 @@ typedef struct _CLIX_COMPANION_CONFIG {
   std::optional<std::wstring> WorkingDirectory;
   std::optional<std::wstring> DesktopStation;
   std::optional<USER_CONTEXT_CONFIG> UserContext;
-  bool PassthroughAllArgs{true};
 } CLIX_COMPANION_CONFIG;
 
 class ConfigParser {
@@ -42,6 +41,7 @@ public:
     std::string* ErrorMessage = nullptr
   );
 
+public:
   ~ConfigParser() = default;
   ConfigParser() = default;
 };

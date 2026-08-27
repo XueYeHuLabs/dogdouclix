@@ -81,3 +81,6 @@ temp/
 
 # DogdouSpec runtime temporary staging files
 /.dogdouspec/_tmp/
+
+# Code reviews and audit documents
+/.reviews/

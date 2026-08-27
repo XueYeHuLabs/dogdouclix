@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<iteration id="20260825-transparent-proxy" schema_version="1.0" revision="4" kind="feature" status="completed" created_at="2026-08-25T01:38:09Z" updated_at="2026-08-25T01:51:00Z" completed_at="2026-08-25T01:51:00Z">
+  <index>
+    <summary>Transparent proxy and drop-in shim mode (dogdouclix.exe) with companion configuration loading (.clix.json/.clix.ini), PATH penetration target resolution, and zero-caller-awareness argument pass-through.</summary>
+    <term key="kind" value="feature" />
+    <term key="iteration" value="20260825-transparent-proxy" />
+    <term key="status" value="completed" />
+  </index>
+  <product>
+        <objective>Implement Transparent Proxy and Drop-in Shim mode in dogdouclix.exe, enabling seamless execution interception where callers invoke dogdouclix as a drop-in binary (via rename, symlink, or prior PATH entry), with automatic companion configuration loading (.clix.json/.clix.ini), PATH penetration target resolution, and 100% transparent argument pass-through without --clix-* prefixes.</objective>
+        <deliverables>
+          <deliverable id="20260825-deliv-proxy-config">
+            <index>
+              <summary>Companion configuration parser for JSON and INI formats defining target paths and context transformation rules.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Config parsing subsystem for .clix.json and .clix.ini companion files.</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-proxy-resolver">
+            <index>
+              <summary>Target resolution engine supporting companion configs, environment variables, and PATH penetration.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Resolution logic for locating target binaries without recursion.</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-proxy-forwarder">
+            <index>
+              <summary>Transparent shim execution workflow forwarding all arguments after argv[0] directly to target.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Zero-awareness transparent forwarding engine.</description>
+          </deliverable>
+          <deliverable id="20260825-deliv-proxy-tests">
+            <index>
+              <summary>Integration test suite for transparent proxying, config loading, and PATH penetration.</summary>
+              <term key="kind" value="deliverable" />
+            </index>
+            <description>Automated regression and integration test harness.</description>
+          </deliverable>
+        </deliverables>
+        <scope>
+          <included>
+            <item>Companion config discovery: [exename].clix.json, [exename].clix.ini, clix.json.</item>
+            <item>Lightweight JSON/INI parser for target path, environment mutations, working directory, and user context.</item>
+            <item>PATH penetration resolution: finding the next binary with same name in downstream PATH directories.</item>
+            <item>Transparent argument forwarding: forwarding all arguments after argv[0] to target with 100% fidelity.</item>
+            <item>Dual mode support: automatic fallback to explicit mode when invoked directly as dogdouclix.exe.</item>
+          </included>
+          <excluded>
+            <item>Dynamic DLL injection or API hooking into target memory.</item>
+            <item>Non-Windows platform shims.</item>
+          </excluded>
+        </scope>
+        <requirements>
+          <requirement id="20260825-req-proxy-config-parser" status="approved">
+            <index>
+              <summary>Companion configuration file parsing.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>dogdouclix must parse companion JSON and INI configuration files defining target executable paths, environment variable mutations, and user security contexts.</statement>
+            <rationale>Enables declarative, zero-caller-code context injection and target binding.</rationale>
+          </requirement>
+          <requirement id="20260825-req-proxy-target-resolution" status="approved">
+            <index>
+              <summary>Target resolution and PATH penetration.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>dogdouclix must resolve the target executable path via companion config, environment variable (DOGDOUCLIX_TARGET), or PATH penetration when invoked as a renamed or symlinked shim.</statement>
+            <rationale>Drop-in shims placed earlier in PATH must locate the authentic downstream binary without recursion.</rationale>
+          </requirement>
+          <requirement id="20260825-req-proxy-transparent-dispatch" status="approved">
+            <index>
+              <summary>Transparent argument pass-through in shim mode.</summary>
+              <term key="kind" value="requirement" />
+            </index>
+            <statement>When operating in transparent proxy mode, dogdouclix must forward all command-line arguments after argv[0] directly to the resolved target without caller awareness.</statement>
+            <rationale>Drop-in compatibility requires complete transparency to parent shells and toolchains.</rationale>
+          </requirement>
+        </requirements>
+        <acceptance>
+          <criterion id="20260825-crit-config-parse" decision="accepted">Companion config files (.clix.json / .clix.ini) are accurately parsed and applied to context transformations.</criterion>
+          <criterion id="20260825-crit-path-penetration" decision="accepted">When shim is renamed to a target binary in a high-priority PATH directory, it successfully finds and executes the real binary in downstream PATH directories without infinite self-recursion.</criterion>
+          <criterion id="20260825-crit-transparent-args" decision="accepted">All arguments passed to shim (including quotes, flags, and subcommands) are forwarded to the real target with exact fidelity.</criterion>
+        </acceptance>
+      </product>
+  <confirmations><confirmation id="20260825T014200Z-confirm-activate-proxy" action="activate" decision="accepted" actor="owner" decided_at="2026-08-25T01:42:00Z"><summary>Owner confirmed activation of iteration 20260825-transparent-proxy: transparent drop-in shim mode, companion config parser (.clix.json/.clix.ini), and PATH penetration target resolver.</summary><requirements>
+    <requirement target="20260825-req-proxy-config-parser" decision="approved" />
+    <requirement target="20260825-req-proxy-target-resolution" decision="approved" />
+    <requirement target="20260825-req-proxy-transparent-dispatch" decision="approved" />
+  </requirements></confirmation><confirmation id="20260825T015100Z-confirm-complete-proxy" action="complete" decision="accepted" actor="owner" decided_at="2026-08-25T01:51:00Z"><summary>Owner confirmed completion of iteration 20260825-transparent-proxy: transparent drop-in shim mode, companion config parser (.clix.json/.clix.ini), PATH penetration target resolution, and full argument transparency successfully implemented and verified.</summary><acceptance>
+    <criterion target="20260825-crit-config-parse" decision="accepted" />
+    <criterion target="20260825-crit-path-penetration" decision="accepted" />
+    <criterion target="20260825-crit-transparent-args" decision="accepted" />
+  </acceptance></confirmation></confirmations>
+</iteration>

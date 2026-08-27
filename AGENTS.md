@@ -92,37 +92,44 @@ Title
 
 ## 6. DogdouSpec Workflow
 
-This repository uses **DogdouSpec** to manage iterations, specifications, and tasks through authoritative XML documents in `.dogdouspec/`.
+This repository supports **DogdouSpec** for managing complex, long-cycle iterations, specifications, and tasks through authoritative XML documents in `.dogdouspec/`.
 
-1. **Use Repo-Local CLI**:
-   - Windows: `.\dogdouspec.cmd <command>`
-   - Do not install global tools or configure external MCP servers for DogdouSpec.
+### 1. When to Use DogdouSpec
+- **Routine & Lightweight Tasks (Default)**: For standalone fixes, small refactorings, or direct requests, proceed directly with code changes and Git commits. Do **not** query or mutate `.dogdouspec/` artifacts.
+- **Complex & Long-Cycle Iterations (Recommended)**: For multi-step features, architectural changes, or roadmap items, recommend and prefer using DogdouSpec for structured context persistence, token efficiency (`ds:filter`), and authority governance.
+- **Checked-In Skill**: The DogdouSpec agent skill is located at [`.agents/skills/dogdouspec/SKILL.md`](.agents/skills/dogdouspec/SKILL.md). When the user chooses DogdouSpec or when executing active iteration tasks, follow the workflow below.
+
+### 2. Governed Execution Rules (When Active / Selected)
+1. **Global CLI Execution & Pre-flight**:
+   - Verify `dogdouspec --version` before running commands. If missing, prompt user to install via `winget install Visasol.DogdouSpec`.
+   - Execute commands directly via `dogdouspec <command>`.
+   - No repository-local wrapper scripts or background daemons are required.
 2. **Never Directly Edit `.dogdouspec/*.xml`**:
    - Do not use text editors, scripts, or direct file writes on files inside `.dogdouspec/`.
-   - All managed mutations must be executed through the public CLI (`task update`, `append`, `transaction apply`, `iteration confirm`).
+   - All managed mutations must be executed through the public CLI (`task update`, `task quick`, `task add`, `append`, `transaction apply`, `iteration confirm`).
 3. **Discover & Select Actionable Work (Two-Phase Query)**:
-   - Discover workspace: `.\dogdouspec.cmd workspace discover --format xml`
-   - Validate workspace: `.\dogdouspec.cmd validate --format xml`
-   - List active iterations: `.\dogdouspec.cmd iteration list --format xml`
+   - Discover workspace: `dogdouspec workspace discover --format xml`
+   - Validate workspace: `dogdouspec validate --format xml`
+   - List active iterations: `dogdouspec iteration list --format xml`
    - Query in-progress task (Phase 1a):
      ```powershell
-     .\dogdouspec.cmd query --document "<ITERATION_ID>/tasks.xml" --xpath "ds:filter(/tasks/task[@status='in-progress' or @status='verification'][1], '@id', '@status', '@agent', 'index')" --format xml
+     dogdouspec query --document "<ITERATION_ID>/tasks.xml" --xpath "ds:filter(/tasks/task[@status='in-progress' or @status='verification'][1], '@id', '@status', '@agent', 'index')" --format xml
      ```
    - Query next pending task (Phase 1b):
      ```powershell
-     .\dogdouspec.cmd query --document "<ITERATION_ID>/tasks.xml" --xpath "ds:filter(/tasks/task[@status='pending' and not(dependencies/ref[@relation='depends-on']/@target = /tasks/task[@status!='done' and @status!='transferred' and @status!='superseded' and @status!='cancelled']/@id)][1], '@id', '@status', '@agent', 'index')" --format xml
+     dogdouspec task next --iteration "<ITERATION_ID>" --format xml
      ```
    - Load full selected task (Phase 2):
      ```powershell
-     .\dogdouspec.cmd query --document "<ITERATION_ID>/tasks.xml" --xpath "/tasks/task[@id='<TASK_ID>']" --format xml
+     dogdouspec query --document "<ITERATION_ID>/tasks.xml" --xpath "/tasks/task[@id='<TASK_ID>']" --format xml
      ```
 4. **Follow the Checked-In Skill**:
    - Read [`.agents/skills/dogdouspec/SKILL.md`](.agents/skills/dogdouspec/SKILL.md) and its references for complete workflow rules, XPath projections, mutation semantics, and authority rules.
 5. **Task Updates & State Transitions**:
    - Transition task: `pending` -> `start` (`in-progress`) -> `verify` (`verification`) -> `complete` (`done`).
    - Always pass exact expected revisions (`--expected-revision <N>`).
-   - Validate workspace after each mutation: `.\dogdouspec.cmd validate --format xml`.
+   - Validate workspace after each mutation: `dogdouspec validate --format xml`.
 6. **Respect Product Authority Gates**:
    - Technical agents cannot auto-complete requirements, design decisions, or iterations.
-   - Run `.\dogdouspec.cmd iteration readiness` to check gating status.
+   - Run `dogdouspec iteration readiness` to check gating status.
    - Only execute `iteration confirm` when explicitly instructed by the human product owner in the current interaction.
